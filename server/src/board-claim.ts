@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { createHash, randomBytes } from "node:crypto";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { companies, companyMemberships, instanceUserRoles } from "@paperclipai/db";
+import { companies, companyMemberships, instanceUserRoles, invites } from "@paperclipai/db";
 import type { DeploymentMode } from "@paperclipai/shared";
 
 const LOCAL_BOARD_USER_ID = "local-board";
@@ -63,6 +63,61 @@ export async function initializeBoardClaimChallenge(
   if (!activeChallenge || activeChallenge.expiresAt.getTime() <= Date.now() || activeChallenge.claimedAt) {
     activeChallenge = createChallenge();
   }
+}
+
+/**
+ * On a fresh deploy in authenticated mode there are zero instance admins
+ * (board-claim only covers the local_trusted → authenticated transition where
+ * local-board exists). This function detects the zero-admin state and
+ * auto-creates a bootstrap_ceo invite so the first user can claim ownership
+ * without needing CLI access (e.g. on Dokploy / Docker).
+ *
+ * Returns the raw invite token (for building the URL) or null if no invite was
+ * needed.
+ */
+export async function autoBootstrapCeoInvite(
+  db: Db,
+  opts: { deploymentMode: DeploymentMode },
+): Promise<{ token: string; expiresAt: Date } | null> {
+  if (opts.deploymentMode !== "authenticated") return null;
+
+  const admins = await db
+    .select({ userId: instanceUserRoles.userId })
+    .from(instanceUserRoles)
+    .where(eq(instanceUserRoles.role, "instance_admin"));
+
+  // If there are any admins at all (real user or local-board), skip.
+  if (admins.length > 0) return null;
+
+  // Check for an existing unexpired, unrevoked, unaccepted bootstrap invite.
+  const now = new Date();
+  const existing = await db
+    .select({ id: invites.id })
+    .from(invites)
+    .where(
+      and(
+        eq(invites.inviteType, "bootstrap_ceo"),
+        isNull(invites.revokedAt),
+        isNull(invites.acceptedAt),
+        gt(invites.expiresAt, now),
+      ),
+    )
+    .then((rows) => rows[0] ?? null);
+
+  if (existing) return null; // An active invite already exists.
+
+  const token = `pcp_bootstrap_${randomBytes(24).toString("hex")}`;
+  const expiresAt = new Date(now.getTime() + 72 * 60 * 60 * 1000); // 72 hours
+
+  await db.insert(invites).values({
+    inviteType: "bootstrap_ceo",
+    tokenHash: createHash("sha256").update(token).digest("hex"),
+    allowedJoinTypes: "human",
+    expiresAt,
+    invitedByUserId: "system",
+  });
+
+  return { token, expiresAt };
 }
 
 export function getBoardClaimWarningUrl(host: string, port: number): string | null {

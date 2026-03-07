@@ -27,7 +27,7 @@ import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
 import { heartbeatService } from "./services/index.js";
 import { createStorageServiceFromConfig } from "./storage/index.js";
 import { printStartupBanner } from "./startup-banner.js";
-import { getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
+import { autoBootstrapCeoInvite, getBoardClaimWarningUrl, initializeBoardClaimChallenge } from "./board-claim.js";
 
 type BetterAuthSessionUser = {
   id: string;
@@ -399,6 +399,7 @@ if (config.deploymentMode === "authenticated") {
 
 let authReady = config.deploymentMode === "local_trusted";
 let betterAuthHandler: RequestHandler | undefined;
+let bootstrapInvite: { token: string; expiresAt: Date } | null = null;
 let resolveSession:
   | ((req: ExpressRequest) => Promise<BetterAuthSessionResult | null>)
   | undefined;
@@ -446,6 +447,7 @@ if (config.deploymentMode === "authenticated") {
   resolveSession = (req) => resolveBetterAuthSession(auth, req);
   resolveSessionFromHeaders = (headers) => resolveBetterAuthSessionFromHeaders(auth, headers);
   await initializeBoardClaimChallenge(db as any, { deploymentMode: config.deploymentMode });
+  bootstrapInvite = await autoBootstrapCeoInvite(db as any, { deploymentMode: config.deploymentMode });
   authReady = true;
 }
 
@@ -605,6 +607,26 @@ server.listen(listenPort, config.host, () => {
         `${yellow}Sign in with a real user and open this one-time URL to claim ownership:${reset}`,
         `${yellow}${boardClaimUrl}${reset}`,
         `${yellow}If you are connecting over Tailscale, replace the host in this URL with your Tailscale IP/MagicDNS name.${reset}`,
+      ].join("\n"),
+    );
+  }
+
+  if (bootstrapInvite) {
+    const publicUrl =
+      config.authPublicBaseUrl ??
+      process.env.PAPERCLIP_PUBLIC_URL ??
+      `http://${config.host === "0.0.0.0" ? "localhost" : config.host}:${listenPort}`;
+    const inviteUrl = `${publicUrl.replace(/\/+$/, "")}/invite/${bootstrapInvite.token}`;
+    const green = "\x1b[42m\x1b[30m";
+    const cyan = "\x1b[36m";
+    const reset = "\x1b[0m";
+    console.log(
+      [
+        `${green}  FIRST-TIME SETUP  ${reset}`,
+        `${cyan}No instance admin found. A bootstrap CEO invite was auto-created.${reset}`,
+        `${cyan}Sign up, then open this URL to become the instance admin:${reset}`,
+        `${cyan}${inviteUrl}${reset}`,
+        `${cyan}Expires: ${bootstrapInvite.expiresAt.toISOString()}${reset}`,
       ].join("\n"),
     );
   }
