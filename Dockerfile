@@ -34,9 +34,15 @@ WORKDIR /app
 COPY --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
 
-# gosu for dropping from root to non-root in the entrypoint
+# gosu (privilege drop), gh (GitHub CLI for private repos)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends gosu \
+  && mkdir -p -m 755 /etc/apt/keyrings \
+  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    > /etc/apt/sources.list.d/github-cli.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends gosu gh \
   && rm -rf /var/lib/apt/lists/*
 
 # Non-root user so Claude CLI accepts --dangerously-skip-permissions.
@@ -58,7 +64,8 @@ ENV NODE_ENV=production \
   PAPERCLIP_INSTANCE_ID=default \
   PAPERCLIP_CONFIG=/paperclip/instances/default/config.json \
   PAPERCLIP_DEPLOYMENT_MODE=authenticated \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+  PAPERCLIP_DEPLOYMENT_EXPOSURE=private \
+  RUN_LOG_BASE_PATH=/paperclip/instances/default/data/run-logs
 
 VOLUME ["/paperclip"]
 EXPOSE 3100
