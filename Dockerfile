@@ -34,6 +34,21 @@ WORKDIR /app
 COPY --from=build /app /app
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
 
+# gosu for dropping from root to non-root in the entrypoint
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends gosu \
+  && rm -rf /var/lib/apt/lists/*
+
+# Non-root user so Claude CLI accepts --dangerously-skip-permissions.
+# The container starts as root (no USER directive) so the entrypoint can
+# chown the mounted volume, then drops to this user via gosu.
+RUN groupadd --system paperclip && \
+    useradd  --system --gid paperclip --create-home --home-dir /paperclip paperclip && \
+    chown -R paperclip:paperclip /app /paperclip
+
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 ENV NODE_ENV=production \
   HOME=/paperclip \
   HOST=0.0.0.0 \
@@ -48,4 +63,5 @@ ENV NODE_ENV=production \
 VOLUME ["/paperclip"]
 EXPOSE 3100
 
+ENTRYPOINT ["entrypoint.sh"]
 CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
