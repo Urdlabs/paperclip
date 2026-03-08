@@ -1,4 +1,4 @@
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import { type CreateConfigValues, buildBrowserConfig } from "@paperclipai/adapter-utils";
 
 function parseCommaArgs(value: string): string[] {
   return value
@@ -72,5 +72,7 @@ export function buildClaudeLocalConfig(v: CreateConfigValues): Record<string, un
   ac.dangerouslySkipPermissions = v.dangerouslySkipPermissions;
   if (v.command) ac.command = v.command;
   if (v.extraArgs) ac.extraArgs = parseCommaArgs(v.extraArgs);
+  const browser = buildBrowserConfig(v);
+  if (browser) ac.browser = browser;
   return ac;
 }

@@ -1,4 +1,4 @@
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import { type CreateConfigValues, buildBrowserConfig } from "@paperclipai/adapter-utils";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
@@ -78,5 +78,7 @@ export function buildCodexLocalConfig(v: CreateConfigValues): Record<string, unk
       : DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX;
   if (v.command) ac.command = v.command;
   if (v.extraArgs) ac.extraArgs = parseCommaArgs(v.extraArgs);
+  const browser = buildBrowserConfig(v);
+  if (browser) ac.browser = browser;
   return ac;
 }

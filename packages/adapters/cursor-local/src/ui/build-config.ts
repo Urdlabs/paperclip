@@ -1,4 +1,4 @@
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import { type CreateConfigValues, buildBrowserConfig } from "@paperclipai/adapter-utils";
 import { DEFAULT_CURSOR_LOCAL_MODEL } from "../index.js";
 
 function parseCommaArgs(value: string): string[] {
@@ -77,5 +77,7 @@ export function buildCursorLocalConfig(v: CreateConfigValues): Record<string, un
   if (Object.keys(env).length > 0) ac.env = env;
   if (v.command) ac.command = v.command;
   if (v.extraArgs) ac.extraArgs = parseCommaArgs(v.extraArgs);
+  const browser = buildBrowserConfig(v);
+  if (browser) ac.browser = browser;
   return ac;
 }

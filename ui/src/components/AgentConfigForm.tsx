@@ -760,6 +760,113 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         </div>
       )}
 
+      {/* ---- Browser ---- */}
+      {isLocal && (
+        <div className={cn(!cards && "border-b border-border")}>
+          {cards
+            ? <h3 className="text-sm font-medium mb-3">Browser</h3>
+            : <div className="px-4 py-2 text-xs font-medium text-muted-foreground">Browser</div>
+          }
+          <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
+            <Field label="Browser provider" hint={help.browserProvider}>
+              <select
+                className={inputClass}
+                value={
+                  isCreate
+                    ? val!.browserProvider
+                    : eff("adapterConfig", "browser.provider",
+                        (typeof config.browser === "object" && config.browser !== null
+                          ? (config.browser as Record<string, unknown>).provider as string ?? "none"
+                          : "none"))
+                }
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isCreate) {
+                    set!({ browserProvider: v });
+                  } else {
+                    const cur = typeof config.browser === "object" && config.browser !== null
+                      ? (config.browser as Record<string, unknown>)
+                      : {};
+                    mark("adapterConfig", "browser", v === "none" ? undefined : { ...cur, provider: v });
+                  }
+                }}
+              >
+                <option value="none">None</option>
+                <option value="agent_browser">Agent Browser (Lightpanda)</option>
+              </select>
+            </Field>
+
+            {(isCreate ? val!.browserProvider : eff("adapterConfig", "browser.provider",
+              (typeof config.browser === "object" && config.browser !== null
+                ? (config.browser as Record<string, unknown>).provider as string ?? "none"
+                : "none"))) === "agent_browser" && (
+              <>
+                <Field label="Lightpanda mode" hint={help.browserLightpandaMode}>
+                  <select
+                    className={inputClass}
+                    value={
+                      isCreate
+                        ? val!.browserLightpandaMode
+                        : eff("adapterConfig", "browser.lightpandaMode",
+                            (typeof config.browser === "object" && config.browser !== null
+                              ? (config.browser as Record<string, unknown>).lightpandaMode as string ?? "local"
+                              : "local"))
+                    }
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (isCreate) {
+                        set!({ browserLightpandaMode: v });
+                      } else {
+                        const cur = typeof config.browser === "object" && config.browser !== null
+                          ? (config.browser as Record<string, unknown>)
+                          : {};
+                        mark("adapterConfig", "browser", { ...cur, lightpandaMode: v });
+                      }
+                    }}
+                  >
+                    <option value="local">Local</option>
+                    <option value="cloud">Cloud</option>
+                  </select>
+                </Field>
+
+                {(isCreate ? val!.browserLightpandaMode : eff("adapterConfig", "browser.lightpandaMode",
+                  (typeof config.browser === "object" && config.browser !== null
+                    ? (config.browser as Record<string, unknown>).lightpandaMode as string ?? "local"
+                    : "local"))) === "cloud" && (
+                  <Field label="Cloud region" hint={help.browserCloudRegion}>
+                    <select
+                      className={inputClass}
+                      value={
+                        isCreate
+                          ? val!.browserCloudRegion || "eu-west"
+                          : eff("adapterConfig", "browser.cloudRegion",
+                              (typeof config.browser === "object" && config.browser !== null
+                                ? (config.browser as Record<string, unknown>).cloudRegion as string ?? "eu-west"
+                                : "eu-west"))
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (isCreate) {
+                          set!({ browserCloudRegion: v });
+                        } else {
+                          const cur = typeof config.browser === "object" && config.browser !== null
+                            ? (config.browser as Record<string, unknown>)
+                            : {};
+                          mark("adapterConfig", "browser", { ...cur, cloudRegion: v });
+                        }
+                      }}
+                    >
+                      <option value="eu-west">EU West</option>
+                      <option value="us-west">US West</option>
+                    </select>
+                  </Field>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ---- Run Policy ---- */}
       {isCreate ? (
         <div className={cn(!cards && "border-b border-border")}>

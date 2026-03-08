@@ -20,7 +20,7 @@ import { getRunLogStore, type RunLogHandle } from "./run-log-store.js";
 import { getServerAdapter, runningProcesses } from "../adapters/index.js";
 import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec } from "../adapters/index.js";
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
-import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
+import { parseObject, asBoolean, asNumber, asString, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
 import { githubAppService } from "./github-app.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
@@ -1305,6 +1305,25 @@ export function heartbeatService(db: Db) {
         } catch (err) {
           logger.warn({ err, agentId: agent.id, runId: run.id }, "Failed to generate GitHub installation tokens");
         }
+      }
+
+      // Inject agent-browser / Lightpanda env vars if browser config is present
+      const browserConfig = parseObject(resolvedConfig.browser);
+      const browserProvider = asString(browserConfig.provider, "none");
+      if (browserProvider === "agent_browser") {
+        const currentEnv = (resolvedConfig.env ?? {}) as Record<string, string>;
+        const browserEnv: Record<string, string> = {
+          AGENT_BROWSER_ENGINE: "lightpanda",
+          AGENT_BROWSER_SESSION: run.id,
+        };
+        const lightpandaMode = asString(browserConfig.lightpandaMode, "local");
+        if (lightpandaMode === "cloud") {
+          const cloudToken = currentEnv.LIGHTPANDA_CLOUD_TOKEN ?? "";
+          const cloudRegion = asString(browserConfig.cloudRegion, "eu-west");
+          const cdpUrl = `wss://${cloudRegion}.cloud.lightpanda.io/ws${cloudToken ? `?token=${cloudToken}` : ""}`;
+          browserEnv.AGENT_BROWSER_CDP = cdpUrl;
+        }
+        resolvedConfig.env = { ...currentEnv, ...browserEnv };
       }
 
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {

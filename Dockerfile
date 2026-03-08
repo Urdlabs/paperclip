@@ -50,7 +50,14 @@ FROM base AS production
 WORKDIR /app
 
 COPY --from=build /app /app
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
+RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai agent-browser@latest
+
+# Lightpanda headless browser binary
+RUN ARCH=$(dpkg --print-architecture) \
+  && if [ "$ARCH" = "amd64" ]; then LP_ARCH="x86_64"; else LP_ARCH="aarch64"; fi \
+  && curl -fsSL "https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-${LP_ARCH}-linux" \
+       -o /usr/local/bin/lightpanda \
+  && chmod +x /usr/local/bin/lightpanda
 
 # gosu (privilege drop) + gh (GitHub CLI for private repos)
 # NOTE: The keyring is already in GPG binary format; gpg --dearmor is NOT

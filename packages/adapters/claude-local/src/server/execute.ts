@@ -306,6 +306,30 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const billingType = resolveClaudeBillingType(env);
   const skillsDir = await buildSkillsDir();
 
+  // Inject Lightpanda MCP server config for cloud mode into the --add-dir
+  // tmpdir so Claude Code discovers it as a project-level MCP config.
+  const browserCfg = parseObject(config.browser);
+  if (
+    asString(browserCfg.provider, "none") === "agent_browser" &&
+    asString(browserCfg.lightpandaMode, "local") === "cloud"
+  ) {
+    const cloudRegion = asString(browserCfg.cloudRegion, "eu-west");
+    const cloudToken = env.LIGHTPANDA_CLOUD_TOKEN ?? "";
+    const mcpUrl = `https://${cloudRegion}.cloud.lightpanda.io/mcp/sse${cloudToken ? `?token=${cloudToken}` : ""}`;
+    await fs.writeFile(
+      path.join(skillsDir, ".mcp.json"),
+      JSON.stringify(
+        {
+          mcpServers: {
+            lightpanda: { type: "sse", url: mcpUrl },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
   // When instructionsFilePath is configured, create a combined temp file that
   // includes both the file content and the path directive, so we only need
   // --append-system-prompt-file (Claude CLI forbids using both flags together).

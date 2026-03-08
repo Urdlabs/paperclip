@@ -21,4 +21,7 @@ export const defaultCreateValues: CreateConfigValues = {
   maxTurnsPerRun: 80,
   heartbeatEnabled: false,
   intervalSec: 300,
+  browserProvider: "none",
+  browserLightpandaMode: "local",
+  browserCloudRegion: "",
 };

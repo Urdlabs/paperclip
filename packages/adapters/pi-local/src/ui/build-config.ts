@@ -1,4 +1,4 @@
-import type { CreateConfigValues } from "@paperclipai/adapter-utils";
+import { type CreateConfigValues, buildBrowserConfig } from "@paperclipai/adapter-utils";
 
 function parseEnvVars(text: string): Record<string, string> {
   const env: Record<string, string> = {};
@@ -66,6 +66,8 @@ export function buildPiLocalConfig(v: CreateConfigValues): Record<string, unknow
   if (v.command) ac.command = v.command;
   if (v.extraArgs) ac.extraArgs = v.extraArgs;
   if (v.args) ac.args = v.args;
+  const browser = buildBrowserConfig(v);
+  if (browser) ac.browser = browser;
 
   return ac;
 }

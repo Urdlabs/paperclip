@@ -211,4 +211,23 @@ export interface CreateConfigValues {
   maxTurnsPerRun: number;
   heartbeatEnabled: boolean;
   intervalSec: number;
+  browserProvider: string;
+  browserLightpandaMode: string;
+  browserCloudRegion: string;
+}
+
+// ---------------------------------------------------------------------------
+// Browser config helpers
+// ---------------------------------------------------------------------------
+
+export function buildBrowserConfig(v: CreateConfigValues): Record<string, unknown> | undefined {
+  if (!v.browserProvider || v.browserProvider === "none") return undefined;
+  const browser: Record<string, unknown> = {
+    provider: v.browserProvider,
+    lightpandaMode: v.browserLightpandaMode || "local",
+  };
+  if (v.browserLightpandaMode === "cloud" && v.browserCloudRegion) {
+    browser.cloudRegion = v.browserCloudRegion;
+  }
+  return browser;
 }
