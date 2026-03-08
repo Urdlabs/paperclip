@@ -380,8 +380,8 @@ export function CompanySettings() {
         </div>
       </div>
 
-      {/* GitHub Integration (instance-level) */}
-      <GitHubSection />
+      {/* GitHub Integration */}
+      <GitHubSection companyId={selectedCompanyId!} />
 
       {/* Danger Zone */}
       <div className="space-y-4">
@@ -439,33 +439,33 @@ export function CompanySettings() {
   );
 }
 
-function GitHubSection() {
+function GitHubSection({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
   const formRef = useRef<HTMLFormElement>(null);
   const [githubOrg, setGithubOrg] = useState("");
 
   const statusQuery = useQuery({
-    queryKey: queryKeys.github.status,
-    queryFn: () => githubApi.getStatus(),
+    queryKey: [...queryKeys.github.status, companyId],
+    queryFn: () => githubApi.getStatus(companyId),
     retry: false,
   });
 
   const syncMutation = useMutation({
     mutationFn: (appId: string) => githubApi.syncInstallations(appId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.github.status, companyId] });
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (appId: string) => githubApi.deleteApp(appId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.github.status, companyId] });
     },
   });
 
   const manifestMutation = useMutation({
-    mutationFn: (org?: string) => githubApi.getManifest(org || undefined),
+    mutationFn: (org?: string) => githubApi.getManifest({ org: org || undefined, companyId }),
     onSuccess: (data) => {
       // Submit hidden form to GitHub with the manifest
       if (!formRef.current) return;

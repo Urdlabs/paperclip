@@ -1247,22 +1247,41 @@ export function heartbeatService(db: Db) {
         mergedConfig,
       );
 
-      // Inject GitHub installation token if a GitHub App is configured and no
+      // Inject GitHub installation tokens if a GitHub App is configured and no
       // explicit GITHUB_TOKEN is already set in the adapter config.
       const resolvedEnv = (resolvedConfig.env ?? {}) as Record<string, string>;
       if (!resolvedEnv.GITHUB_TOKEN && !resolvedEnv.GH_TOKEN) {
         try {
-          const ghToken = await githubSvc.generateInstallationToken();
-          if (ghToken) {
-            resolvedConfig.env = {
-              ...resolvedEnv,
-              GITHUB_TOKEN: ghToken,
-              GH_TOKEN: ghToken,
+          const tokens = await githubSvc.generateAllInstallationTokens({ companyId: agent.companyId });
+          if (tokens.length > 0) {
+            const envPatch: Record<string, string> = {
+              GITHUB_TOKEN: tokens[0]!.token,
+              GH_TOKEN: tokens[0]!.token,
               GIT_ASKPASS: "/usr/local/bin/paperclip-git-askpass",
             };
+
+            // Per-org git URL rewriting via insteadOf (requires Git 2.31+)
+            let configIdx = 0;
+            for (const t of tokens) {
+              // HTTPS rewrite
+              envPatch[`GIT_CONFIG_KEY_${configIdx}`] =
+                `url.https://x-access-token:${t.token}@github.com/${t.accountLogin}/.insteadOf`;
+              envPatch[`GIT_CONFIG_VALUE_${configIdx}`] =
+                `https://github.com/${t.accountLogin}/`;
+              configIdx++;
+              // SSH rewrite
+              envPatch[`GIT_CONFIG_KEY_${configIdx}`] =
+                `url.https://x-access-token:${t.token}@github.com/${t.accountLogin}/.insteadOf`;
+              envPatch[`GIT_CONFIG_VALUE_${configIdx}`] =
+                `git@github.com:${t.accountLogin}/`;
+              configIdx++;
+            }
+            envPatch.GIT_CONFIG_COUNT = String(configIdx);
+
+            resolvedConfig.env = { ...resolvedEnv, ...envPatch };
           }
         } catch (err) {
-          logger.warn({ err, agentId: agent.id, runId: run.id }, "Failed to generate GitHub installation token");
+          logger.warn({ err, agentId: agent.id, runId: run.id }, "Failed to generate GitHub installation tokens");
         }
       }
 

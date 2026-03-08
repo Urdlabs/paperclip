@@ -81,7 +81,8 @@ export function githubRoutes(db: Db) {
       );
     }
     const org = (req.query.org as string | undefined)?.trim();
-    const manifest = svc.generateManifest(publicUrl);
+    const companyId = (req.query.companyId as string | undefined)?.trim();
+    const manifest = svc.generateManifest(publicUrl, companyId);
     const redirectUrl = org
       ? `https://github.com/organizations/${encodeURIComponent(org)}/settings/apps/new`
       : "https://github.com/settings/apps/new";
@@ -93,10 +94,11 @@ export function githubRoutes(db: Db) {
     requireInstanceAdmin(req);
     const code = req.query.code as string | undefined;
     if (!code) throw badRequest("Missing code parameter");
+    const companyId = (req.query.companyId as string | undefined)?.trim();
 
     let result: { githubAppSlug: string };
     try {
-      result = await svc.exchangeCode(code);
+      result = await svc.exchangeCode(code, companyId);
     } catch (err) {
       logger.error({ err }, "Failed to exchange GitHub App manifest code");
       const publicUrl = resolvePublicUrl() ?? "";
@@ -144,7 +146,8 @@ export function githubRoutes(db: Db) {
   // GET /github/status — check if GitHub Apps are configured (returns all apps)
   router.get("/github/status", async (req: Request, res: Response) => {
     requireBoard(req);
-    const status = await svc.getStatus();
+    const companyId = (req.query.companyId as string | undefined)?.trim();
+    const status = await svc.getStatus(companyId);
     res.json(status);
   });
 

@@ -3,13 +3,21 @@ import type { GitHubAppStatus, GitHubAppInstallation } from "@paperclipai/shared
 
 export const githubApi = {
   /** Get the GitHub App manifest and redirect URL. */
-  getManifest: (org?: string) =>
-    api.get<{ manifest: Record<string, unknown>; redirectUrl: string }>(
-      org ? `/github/manifest?org=${encodeURIComponent(org)}` : "/github/manifest",
-    ),
+  getManifest: (opts?: { org?: string; companyId?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.org) params.set("org", opts.org);
+    if (opts?.companyId) params.set("companyId", opts.companyId);
+    const qs = params.toString();
+    return api.get<{ manifest: Record<string, unknown>; redirectUrl: string }>(
+      qs ? `/github/manifest?${qs}` : "/github/manifest",
+    );
+  },
 
   /** Get the current GitHub App status (all apps). */
-  getStatus: () => api.get<GitHubAppStatus>("/github/status"),
+  getStatus: (companyId?: string) => {
+    const qs = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
+    return api.get<GitHubAppStatus>(`/github/status${qs}`);
+  },
 
   /** List all GitHub App installations (flat, across all apps). */
   getInstallations: () =>

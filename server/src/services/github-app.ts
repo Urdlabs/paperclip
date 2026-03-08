@@ -8,7 +8,7 @@ import {
 } from "node:crypto";
 import { existsSync, readFileSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import path from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, or, isNull, and } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { githubApps, githubAppInstallations } from "@paperclipai/db";
 import type { GitHubAppConfig, GitHubAppInstallation, GitHubAppStatus } from "@paperclipai/shared";
@@ -194,8 +194,14 @@ async function githubFetch(url: string, opts: RequestInit = {}): Promise<Respons
 // ---------------------------------------------------------------------------
 
 export function githubAppService(db: Db) {
-  /** Get all GitHub App rows. */
-  async function getApps(): Promise<(typeof githubApps.$inferSelect)[]> {
+  /** Get GitHub App rows, optionally scoped to a company (+ unscoped fallbacks). */
+  async function getApps(companyId?: string): Promise<(typeof githubApps.$inferSelect)[]> {
+    if (companyId) {
+      return db
+        .select()
+        .from(githubApps)
+        .where(or(eq(githubApps.companyId, companyId), isNull(githubApps.companyId)));
+    }
     return db.select().from(githubApps);
   }
 
@@ -223,8 +229,8 @@ export function githubAppService(db: Db) {
   }
 
   /** Get status summary with all apps and their installations. */
-  async function getStatus(): Promise<GitHubAppStatus> {
-    const apps = await getApps();
+  async function getStatus(companyId?: string): Promise<GitHubAppStatus> {
+    const apps = await getApps(companyId);
     if (apps.length === 0) {
       return { configured: false, apps: [] };
     }
@@ -261,8 +267,9 @@ export function githubAppService(db: Db) {
   }
 
   /** Generate the manifest JSON for creating the GitHub App. */
-  function generateManifest(publicUrl: string): Record<string, unknown> {
+  function generateManifest(publicUrl: string, companyId?: string): Record<string, unknown> {
     const base = publicUrl.replace(/\/+$/, "");
+    const qs = companyId ? `?companyId=${encodeURIComponent(companyId)}` : "";
     return {
       name: `Paperclip ${randomBytes(4).toString("hex")}`,
       url: base,
@@ -270,9 +277,9 @@ export function githubAppService(db: Db) {
         url: `${base}/api/github/webhook`,
         active: true,
       },
-      redirect_url: `${base}/api/github/callback`,
+      redirect_url: `${base}/api/github/callback${qs}`,
       setup_url: `${base}/github/setup-complete`,
-      callback_urls: [`${base}/api/github/callback`],
+      callback_urls: [`${base}/api/github/callback${qs}`],
       public: false,
       default_permissions: {
         contents: "write",
@@ -287,7 +294,7 @@ export function githubAppService(db: Db) {
   }
 
   /** Exchange the code from GitHub manifest flow for app credentials. */
-  async function exchangeCode(code: string): Promise<GitHubAppConfig> {
+  async function exchangeCode(code: string, companyId?: string): Promise<GitHubAppConfig> {
     const res = await githubFetch(`${GITHUB_API}/app-manifests/${code}/conversions`, {
       method: "POST",
     });
@@ -323,6 +330,7 @@ export function githubAppService(db: Db) {
         permissions: data.permissions,
         events: data.events,
         htmlUrl: data.html_url,
+        companyId: companyId ?? null,
       })
       .returning();
 
@@ -591,17 +599,70 @@ export function githubAppService(db: Db) {
     return false;
   }
 
+  interface InstallationToken {
+    token: string;
+    accountLogin: string;
+    installationId: number;
+  }
+
+  /**
+   * Generate installation access tokens for ALL active installations.
+   * When companyId is provided, returns company-scoped apps first, then unscoped fallbacks.
+   * Company-specific apps take priority: if a company-scoped app covers an org,
+   * the unscoped app's token for the same org is skipped.
+   */
+  async function generateAllInstallationTokens(opts?: {
+    companyId?: string;
+  }): Promise<InstallationToken[]> {
+    const apps = await getApps(opts?.companyId);
+    if (apps.length === 0) return [];
+
+    // Sort company-scoped apps first so they take priority
+    if (opts?.companyId) {
+      apps.sort((a, b) => {
+        const aScoped = a.companyId ? 0 : 1;
+        const bScoped = b.companyId ? 0 : 1;
+        return aScoped - bScoped;
+      });
+    }
+
+    const results: InstallationToken[] = [];
+    const seenAccounts = new Set<string>();
+
+    for (const app of apps) {
+      const installations = await db
+        .select()
+        .from(githubAppInstallations)
+        .where(eq(githubAppInstallations.githubAppId, app.id));
+      const active = installations.filter((i) => !i.suspendedAt);
+
+      for (const inst of active) {
+        // Skip if a higher-priority app already covers this account
+        if (seenAccounts.has(inst.accountLogin.toLowerCase())) continue;
+
+        const token = await generateTokenForInstallation(app, inst.installationId);
+        if (token) {
+          results.push({
+            token,
+            accountLogin: inst.accountLogin,
+            installationId: inst.installationId,
+          });
+          seenAccounts.add(inst.accountLogin.toLowerCase());
+        }
+      }
+    }
+
+    return results;
+  }
+
   /**
    * Generate an installation access token for agent use.
-   * Iterates across all apps to find the first active installation.
-   * Returns null if no GitHub App is configured or no active installations exist.
+   * Backwards-compatible: returns the first token from generateAllInstallationTokens().
    */
   async function generateInstallationToken(opts?: {
     installationId?: number;
+    companyId?: string;
   }): Promise<string | null> {
-    const apps = await getApps();
-    if (apps.length === 0) return null;
-
     if (opts?.installationId) {
       // Find which app owns this installation
       const instRow = await db
@@ -617,21 +678,12 @@ export function githubAppService(db: Db) {
       return generateTokenForInstallation(app, opts.installationId);
     }
 
-    // Try each app's installations to find the first active one
-    for (const app of apps) {
-      const installations = await db
-        .select()
-        .from(githubAppInstallations)
-        .where(eq(githubAppInstallations.githubAppId, app.id));
-      const active = installations.filter((i) => !i.suspendedAt);
-      if (active.length === 0) continue;
-
-      const token = await generateTokenForInstallation(app, active[0]!.installationId);
-      if (token) return token;
+    const tokens = await generateAllInstallationTokens({ companyId: opts?.companyId });
+    if (tokens.length === 0) {
+      logger.warn("GitHub Apps configured but no active installations found");
+      return null;
     }
-
-    logger.warn("GitHub Apps configured but no active installations found");
-    return null;
+    return tokens[0]!.token;
   }
 
   async function generateTokenForInstallation(
@@ -692,6 +744,7 @@ export function githubAppService(db: Db) {
     syncAppInstallations,
     verifyWebhookSignature,
     generateInstallationToken,
+    generateAllInstallationTokens,
     isConfigured,
   };
 }
