@@ -1291,16 +1291,40 @@ export function heartbeatService(db: Db) {
           "local agent jwt secret missing or invalid; running without injected PAPERCLIP_API_KEY",
         );
       }
-      const adapterResult = await adapter.execute({
-        runId: run.id,
-        agent,
-        runtime: runtimeForAdapter,
-        config: resolvedConfig,
-        context,
-        onLog,
-        onMeta: onAdapterMeta,
-        authToken: authToken ?? undefined,
-      });
+      // Periodically touch updatedAt so the orphan reaper does not falsely
+      // mark this run as process_lost during long-running executions.
+      // (runningProcesses is cleared when the child exits but before we
+      //  update the run status in the DB — the reaper uses the 5-min
+      //  staleness threshold on updatedAt to decide.)
+      const keepAlive = setInterval(() => {
+        db.update(heartbeatRuns)
+          .set({ updatedAt: new Date() })
+          .where(eq(heartbeatRuns.id, run.id))
+          .catch(() => {});
+      }, 60_000);
+
+      let adapterResult: AdapterExecutionResult;
+      try {
+        adapterResult = await adapter.execute({
+          runId: run.id,
+          agent,
+          runtime: runtimeForAdapter,
+          config: resolvedConfig,
+          context,
+          onLog,
+          onMeta: onAdapterMeta,
+          authToken: authToken ?? undefined,
+        });
+      } finally {
+        clearInterval(keepAlive);
+        // Touch updatedAt one last time after the child exits so the reaper
+        // does not race with our post-execution DB updates.
+        await db
+          .update(heartbeatRuns)
+          .set({ updatedAt: new Date() })
+          .where(eq(heartbeatRuns.id, run.id))
+          .catch(() => {});
+      }
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,
         adapterResult,
