@@ -193,6 +193,12 @@ async function githubFetch(url: string, opts: RequestInit = {}): Promise<Respons
 // Service
 // ---------------------------------------------------------------------------
 
+export interface InstallationToken {
+  token: string;
+  accountLogin: string;
+  installationId: number;
+}
+
 export function githubAppService(db: Db) {
   /** Get GitHub App rows, optionally scoped to a company (+ unscoped fallbacks). */
   async function getApps(companyId?: string): Promise<(typeof githubApps.$inferSelect)[]> {
@@ -597,12 +603,6 @@ export function githubAppService(db: Db) {
       }
     }
     return false;
-  }
-
-  interface InstallationToken {
-    token: string;
-    accountLogin: string;
-    installationId: number;
   }
 
   /**
