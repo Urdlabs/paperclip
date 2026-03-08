@@ -25,6 +25,8 @@ import { secretService } from "./secrets.js";
 import { githubAppService } from "./github-app.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 
+const activeRunExecutions = new Set<string>();
+
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 10;
@@ -900,16 +902,17 @@ export function heartbeatService(db: Db) {
     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
     const now = new Date();
 
-    // Find all runs in "queued" or "running" state
+    // Only scan "running" runs — queued runs haven't started executing,
+    // so they can't be orphaned.  After a restart they are resumed separately.
     const activeRuns = await db
       .select()
       .from(heartbeatRuns)
-      .where(inArray(heartbeatRuns.status, ["queued", "running"]));
+      .where(eq(heartbeatRuns.status, "running"));
 
     const reaped: string[] = [];
 
     for (const run of activeRuns) {
-      if (runningProcesses.has(run.id)) continue;
+      if (runningProcesses.has(run.id) || activeRunExecutions.has(run.id)) continue;
 
       // Apply staleness threshold to avoid false positives
       if (staleThresholdMs > 0) {
@@ -946,6 +949,22 @@ export function heartbeatService(db: Db) {
       logger.warn({ reapedCount: reaped.length, runIds: reaped }, "reaped orphaned heartbeat runs");
     }
     return { reaped: reaped.length, runIds: reaped };
+  }
+
+  async function resumeQueuedRuns() {
+    const queued = await db
+      .select()
+      .from(heartbeatRuns)
+      .where(eq(heartbeatRuns.status, "queued"));
+
+    for (const run of queued) {
+      void executeRun(run.id);
+    }
+
+    if (queued.length > 0) {
+      logger.info({ count: queued.length }, "resumed queued heartbeat runs after startup");
+    }
+    return { resumed: queued.length };
   }
 
   async function updateRuntimeState(
@@ -1048,6 +1067,9 @@ export function heartbeatService(db: Db) {
       }
       run = claimed;
     }
+
+    activeRunExecutions.add(runId);
+    try {
 
     const agent = await getAgent(run.agentId);
     if (!agent) {
@@ -1526,6 +1548,26 @@ export function heartbeatService(db: Db) {
       await finalizeAgentStatus(agent.id, "failed");
     } finally {
       await startNextQueuedRunForAgent(agent.id);
+    }
+
+    } catch (outerErr) {
+      // Setup code before the inner try threw — fail the run so it doesn't stay "running" forever
+      logger.error({ err: outerErr, runId }, "executeRun failed unexpectedly during setup");
+      await setRunStatus(runId, "failed", {
+        error: `Internal error: ${outerErr instanceof Error ? outerErr.message : String(outerErr)}`,
+        errorCode: "internal_error",
+        finishedAt: new Date(),
+      }).catch(() => {});
+      await setWakeupStatus(run.wakeupRequestId, "failed", {
+        finishedAt: new Date(),
+        error: "Internal error during run setup",
+      }).catch(() => {});
+      const failedRun = await getRun(runId).catch(() => null);
+      if (failedRun) await releaseIssueExecutionAndPromote(failedRun).catch(() => {});
+      await finalizeAgentStatus(run.agentId, "failed").catch(() => {});
+      await startNextQueuedRunForAgent(run.agentId).catch(() => {});
+    } finally {
+      activeRunExecutions.delete(runId);
     }
   }
 
@@ -2269,6 +2311,7 @@ export function heartbeatService(db: Db) {
     wakeup: enqueueWakeup,
 
     reapOrphanedRuns,
+    resumeQueuedRuns,
 
     tickTimers: async (now = new Date()) => {
       const allAgents = await db.select().from(agents);

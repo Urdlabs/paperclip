@@ -489,30 +489,36 @@ setupLiveEventsWebSocketServer(server, db as any, {
 if (config.heartbeatSchedulerEnabled) {
   const heartbeat = heartbeatService(db as any);
 
-  // Reap orphaned runs at startup (no threshold -- runningProcesses is empty)
-  void heartbeat.reapOrphanedRuns().catch((err) => {
-    logger.error({ err }, "startup reap of orphaned heartbeat runs failed");
-  });
+  // Reap orphaned runs at startup, resume queued ones, then start the periodic timer.
+  // The timer is created *after* recovery so it doesn't race with the startup sweep.
+  void (async () => {
+    try {
+      await heartbeat.reapOrphanedRuns();
+      await heartbeat.resumeQueuedRuns();
+    } catch (err) {
+      logger.error({ err }, "startup heartbeat recovery failed");
+    }
 
-  setInterval(() => {
-    void heartbeat
-      .tickTimers(new Date())
-      .then((result) => {
-        if (result.enqueued > 0) {
-          logger.info({ ...result }, "heartbeat timer tick enqueued runs");
-        }
-      })
-      .catch((err) => {
-        logger.error({ err }, "heartbeat timer tick failed");
-      });
+    setInterval(() => {
+      void heartbeat
+        .tickTimers(new Date())
+        .then((result) => {
+          if (result.enqueued > 0) {
+            logger.info({ ...result }, "heartbeat timer tick enqueued runs");
+          }
+        })
+        .catch((err) => {
+          logger.error({ err }, "heartbeat timer tick failed");
+        });
 
-    // Periodically reap orphaned runs (5-min staleness threshold)
-    void heartbeat
-      .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
-      .catch((err) => {
-        logger.error({ err }, "periodic reap of orphaned heartbeat runs failed");
-      });
-  }, config.heartbeatSchedulerIntervalMs);
+      // Periodically reap orphaned runs (5-min staleness threshold)
+      void heartbeat
+        .reapOrphanedRuns({ staleThresholdMs: 5 * 60 * 1000 })
+        .catch((err) => {
+          logger.error({ err }, "periodic reap of orphaned heartbeat runs failed");
+        });
+    }, config.heartbeatSchedulerIntervalMs);
+  })();
 }
 
 if (config.databaseBackupEnabled) {
