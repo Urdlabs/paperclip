@@ -80,11 +80,12 @@ export function githubRoutes(db: Db) {
         "PAPERCLIP_PUBLIC_URL is not set. It is required to create a GitHub App manifest.",
       );
     }
+    const org = (req.query.org as string | undefined)?.trim();
     const manifest = svc.generateManifest(publicUrl);
-    res.json({
-      manifest,
-      redirectUrl: "https://github.com/settings/apps/new",
-    });
+    const redirectUrl = org
+      ? `https://github.com/organizations/${encodeURIComponent(org)}/settings/apps/new`
+      : "https://github.com/settings/apps/new";
+    res.json({ manifest, redirectUrl });
   });
 
   // GET /github/callback?code=<code> — exchange code for app credentials
@@ -93,8 +94,9 @@ export function githubRoutes(db: Db) {
     const code = req.query.code as string | undefined;
     if (!code) throw badRequest("Missing code parameter");
 
+    let result: { githubAppSlug: string };
     try {
-      await svc.exchangeCode(code);
+      result = await svc.exchangeCode(code);
     } catch (err) {
       logger.error({ err }, "Failed to exchange GitHub App manifest code");
       const publicUrl = resolvePublicUrl() ?? "";
@@ -102,8 +104,8 @@ export function githubRoutes(db: Db) {
       return;
     }
 
-    const publicUrl = resolvePublicUrl() ?? "";
-    res.redirect(`${publicUrl}/github/setup-complete?success=true`);
+    // Redirect directly to repository installation on GitHub
+    res.redirect(`https://github.com/apps/${result.githubAppSlug}/installations/new`);
   });
 
   // DELETE /github/app — remove the GitHub App config

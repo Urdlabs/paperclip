@@ -444,6 +444,7 @@ export function CompanySettings() {
 function GitHubSection() {
   const queryClient = useQueryClient();
   const formRef = useRef<HTMLFormElement>(null);
+  const [githubOrg, setGithubOrg] = useState("");
 
   const statusQuery = useQuery({
     queryKey: queryKeys.github.status,
@@ -474,10 +475,11 @@ function GitHubSection() {
   });
 
   const manifestMutation = useMutation({
-    mutationFn: () => githubApi.getManifest(),
+    mutationFn: (org?: string) => githubApi.getManifest(org || undefined),
     onSuccess: (data) => {
       // Submit hidden form to GitHub with the manifest
       if (!formRef.current) return;
+      formRef.current.action = data.redirectUrl;
       const input = formRef.current.querySelector("input[name=manifest]") as HTMLInputElement;
       input.value = JSON.stringify(data.manifest);
       formRef.current.submit();
@@ -526,14 +528,23 @@ function GitHubSection() {
             >
               <input type="hidden" name="manifest" value="" />
             </form>
-            <Button
-              size="sm"
-              onClick={() => manifestMutation.mutate()}
-              disabled={manifestMutation.isPending}
-            >
-              <Github className="h-3.5 w-3.5 mr-1.5" />
-              {manifestMutation.isPending ? "Preparing..." : "Connect GitHub"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="GitHub organization (optional)"
+                value={githubOrg}
+                onChange={(e) => setGithubOrg(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={() => manifestMutation.mutate(githubOrg || undefined)}
+                disabled={manifestMutation.isPending}
+              >
+                <Github className="h-3.5 w-3.5 mr-1.5" />
+                {manifestMutation.isPending ? "Preparing..." : "Connect GitHub"}
+              </Button>
+            </div>
             {manifestMutation.isError && (
               <p className="text-xs text-destructive">
                 {manifestMutation.error instanceof Error

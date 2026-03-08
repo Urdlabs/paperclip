@@ -3,8 +3,10 @@ import type { GitHubAppStatus, GitHubAppInstallation } from "@paperclipai/shared
 
 export const githubApi = {
   /** Get the GitHub App manifest and redirect URL. */
-  getManifest: () =>
-    api.get<{ manifest: Record<string, unknown>; redirectUrl: string }>("/github/manifest"),
+  getManifest: (org?: string) =>
+    api.get<{ manifest: Record<string, unknown>; redirectUrl: string }>(
+      org ? `/github/manifest?org=${encodeURIComponent(org)}` : "/github/manifest",
+    ),
 
   /** Get the current GitHub App status. */
   getStatus: () => api.get<GitHubAppStatus>("/github/status"),

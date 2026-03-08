@@ -240,7 +240,7 @@ export function githubAppService(db: Db) {
   function generateManifest(publicUrl: string): Record<string, unknown> {
     const base = publicUrl.replace(/\/+$/, "");
     return {
-      name: `Paperclip (${process.env.PAPERCLIP_INSTANCE_ID || "default"})`,
+      name: `Paperclip ${randomBytes(4).toString("hex")}`,
       url: base,
       hook_attributes: {
         url: `${base}/api/github/webhook`,
