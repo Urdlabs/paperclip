@@ -1,10 +1,40 @@
+# Version control
 .git
 .github
+
+# Paperclip local data
 .paperclip
+data
+
+# Dependencies (reinstalled during build)
 .pnpm-store
 node_modules
 **/node_modules
+
+# Build artifacts / caches
 coverage
-data
 tmp
+dist
+**/dist
 *.log
+
+# Documentation (not needed in image)
+doc
+*.md
+!packages/*/README.md
+LICENSE
+
+# Docker files (avoid recursive context)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment (secrets)
+.env*
+!.env.example

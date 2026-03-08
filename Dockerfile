@@ -1,11 +1,21 @@
-FROM node:lts-trixie-slim AS base
+# ---------------------------------------------------------------------------
+# Paperclip – multi-stage Docker build
+# ---------------------------------------------------------------------------
+
+# --- base -------------------------------------------------------------------
+FROM node:22-slim AS base
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git \
   && rm -rf /var/lib/apt/lists/*
+
 RUN corepack enable
 
+# --- deps -------------------------------------------------------------------
 FROM base AS deps
+
 WORKDIR /app
+
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
 COPY cli/package.json cli/
 COPY server/package.json server/
@@ -19,28 +29,41 @@ COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
 COPY packages/adapters/openclaw/package.json packages/adapters/openclaw/
 COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
 COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
+
 RUN pnpm install --frozen-lockfile
 
+# --- build ------------------------------------------------------------------
 FROM base AS build
+
 WORKDIR /app
+
 COPY --from=deps /app /app
 COPY . .
-RUN pnpm --filter @paperclipai/ui build
-RUN pnpm --filter @paperclipai/server build
-RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
+RUN pnpm --filter @paperclipai/ui build \
+  && pnpm --filter @paperclipai/server build \
+  && test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
+
+# --- production -------------------------------------------------------------
 FROM base AS production
+
 WORKDIR /app
+
 COPY --from=build /app /app
+
+# Global CLIs for agents (pinned versions will be cached per-layer)
 RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
 
-# gosu (privilege drop), gh (GitHub CLI for private repos)
+# gosu (privilege drop) + gh (GitHub CLI for private repos)
+# NOTE: The keyring is already in GPG binary format; gpg --dearmor is NOT
+# needed and gpg is unavailable on -slim images.
 RUN apt-get update \
   && mkdir -p -m 755 /etc/apt/keyrings \
   && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+       -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+  && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    > /etc/apt/sources.list.d/github-cli.list \
+       > /etc/apt/sources.list.d/github-cli.list \
   && apt-get update \
   && apt-get install -y --no-install-recommends gosu gh \
   && rm -rf /var/lib/apt/lists/*
@@ -48,9 +71,9 @@ RUN apt-get update \
 # Non-root user so Claude CLI accepts --dangerously-skip-permissions.
 # The container starts as root (no USER directive) so the entrypoint can
 # chown the mounted volume, then drops to this user via gosu.
-RUN groupadd --system paperclip && \
-    useradd  --system --gid paperclip --create-home --home-dir /paperclip paperclip && \
-    chown -R paperclip:paperclip /app /paperclip
+RUN groupadd --system paperclip \
+  && useradd --system --gid paperclip --create-home --home-dir /paperclip paperclip \
+  && chown -R paperclip:paperclip /app /paperclip
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/paperclip-git-askpass /usr/local/bin/paperclip-git-askpass
@@ -67,6 +90,9 @@ ENV NODE_ENV=production \
   PAPERCLIP_DEPLOYMENT_MODE=authenticated \
   PAPERCLIP_DEPLOYMENT_EXPOSURE=private \
   RUN_LOG_BASE_PATH=/paperclip/instances/default/data/run-logs
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3100/api/health || exit 1
 
 VOLUME ["/paperclip"]
 EXPOSE 3100
