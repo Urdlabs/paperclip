@@ -50,9 +50,7 @@ FROM base AS production
 WORKDIR /app
 
 COPY --from=build /app /app
-
-# Global CLIs for agents (pinned versions will be cached per-layer)
-RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest
+RUN npm install --global --omit=dev @anthropic-ai/claude-code@latest @openai/codex@latest opencode-ai
 
 # gosu (privilege drop) + gh (GitHub CLI for private repos)
 # NOTE: The keyring is already in GPG binary format; gpg --dearmor is NOT
