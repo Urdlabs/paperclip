@@ -292,6 +292,7 @@ export function githubAppService(db: Db) {
         pull_requests: "write",
         issues: "write",
         metadata: "read",
+        workflows: "write",
       },
       // installation and installation_repositories events are delivered
       // automatically to all GitHub Apps — they must NOT be listed here.
