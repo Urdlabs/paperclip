@@ -1,0 +1,625 @@
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  createSign,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
+import path from "node:path";
+import { eq } from "drizzle-orm";
+import type { Db } from "@paperclipai/db";
+import { githubApps, githubAppInstallations } from "@paperclipai/db";
+import type { GitHubAppConfig, GitHubAppInstallation, GitHubAppStatus } from "@paperclipai/shared";
+import { logger as rootLogger } from "../middleware/logger.js";
+
+const logger = rootLogger.child({ service: "github-app" });
+
+// ---------------------------------------------------------------------------
+// Encryption helpers – reuses same master-key approach as local-encrypted
+// secrets provider (AES-256-GCM).
+// ---------------------------------------------------------------------------
+
+let _masterKey: Buffer | null = null;
+
+function decodeMasterKeyRaw(raw: string): Buffer | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^[A-Fa-f0-9]{64}$/.test(trimmed)) {
+    return Buffer.from(trimmed, "hex");
+  }
+  try {
+    const decoded = Buffer.from(trimmed, "base64");
+    if (decoded.length === 32) return decoded;
+  } catch {
+    // ignored
+  }
+  if (Buffer.byteLength(trimmed, "utf8") === 32) {
+    return Buffer.from(trimmed, "utf8");
+  }
+  return null;
+}
+
+function getMasterKey(): Buffer {
+  if (_masterKey) return _masterKey;
+
+  // Try env var first
+  const raw = process.env.PAPERCLIP_SECRETS_MASTER_KEY;
+  if (raw && raw.trim().length > 0) {
+    const decoded = decodeMasterKeyRaw(raw);
+    if (decoded) {
+      _masterKey = decoded;
+      return _masterKey;
+    }
+  }
+
+  // Fall back to the key file
+  const keyPath =
+    process.env.PAPERCLIP_SECRETS_MASTER_KEY_FILE?.trim() ||
+    path.resolve(process.cwd(), "data/secrets/master.key");
+
+  if (existsSync(keyPath)) {
+    const fileRaw = readFileSync(keyPath, "utf8");
+    const decoded = decodeMasterKeyRaw(fileRaw);
+    if (decoded) {
+      _masterKey = decoded;
+      return _masterKey;
+    }
+  }
+
+  // Generate key if none exists
+  const generated = randomBytes(32);
+  const dir = path.dirname(keyPath);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(keyPath, generated.toString("base64"), { encoding: "utf8", mode: 0o600 });
+  try {
+    chmodSync(keyPath, 0o600);
+  } catch {
+    // best effort
+  }
+  _masterKey = generated;
+  return _masterKey;
+}
+
+function encrypt(value: string): string {
+  const key = getMasterKey();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return JSON.stringify({
+    scheme: "local_encrypted_v1",
+    iv: iv.toString("base64"),
+    tag: tag.toString("base64"),
+    ciphertext: ciphertext.toString("base64"),
+  });
+}
+
+function decrypt(stored: string): string {
+  const key = getMasterKey();
+  const material = JSON.parse(stored) as {
+    scheme: string;
+    iv: string;
+    tag: string;
+    ciphertext: string;
+  };
+  if (material.scheme !== "local_encrypted_v1") {
+    throw new Error(`Unknown encryption scheme: ${material.scheme}`);
+  }
+  const iv = Buffer.from(material.iv, "base64");
+  const tag = Buffer.from(material.tag, "base64");
+  const ciphertext = Buffer.from(material.ciphertext, "base64");
+  const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return plain.toString("utf8");
+}
+
+// ---------------------------------------------------------------------------
+// JWT generation for GitHub App auth (RS256)
+// ---------------------------------------------------------------------------
+
+function generateJwt(appId: number, privateKeyPem: string): string {
+  const now = Math.floor(Date.now() / 1000);
+  const header = { alg: "RS256", typ: "JWT" };
+  const payload = {
+    iat: now - 60, // clock skew tolerance
+    exp: now + 10 * 60, // 10 minutes
+    iss: String(appId),
+  };
+
+  const b64url = (obj: unknown) =>
+    Buffer.from(JSON.stringify(obj)).toString("base64url");
+
+  const headerB64 = b64url(header);
+  const payloadB64 = b64url(payload);
+  const signingInput = `${headerB64}.${payloadB64}`;
+
+  const signature = createSign("RSA-SHA256")
+    .update(signingInput)
+    .sign(privateKeyPem, "base64url");
+
+  return `${signingInput}.${signature}`;
+}
+
+// ---------------------------------------------------------------------------
+// Installation token cache
+// ---------------------------------------------------------------------------
+
+interface CachedToken {
+  token: string;
+  expiresAt: number; // unix ms
+}
+
+const tokenCache = new Map<number, CachedToken>();
+
+function getCachedToken(installationId: number): string | null {
+  const cached = tokenCache.get(installationId);
+  if (!cached) return null;
+  // Expire 5 minutes early to be safe
+  if (Date.now() > cached.expiresAt - 5 * 60 * 1000) {
+    tokenCache.delete(installationId);
+    return null;
+  }
+  return cached.token;
+}
+
+function setCachedToken(installationId: number, token: string, expiresAt: string) {
+  tokenCache.set(installationId, {
+    token,
+    expiresAt: new Date(expiresAt).getTime(),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GitHub API helpers
+// ---------------------------------------------------------------------------
+
+const GITHUB_API = "https://api.github.com";
+
+async function githubFetch(url: string, opts: RequestInit = {}): Promise<Response> {
+  return fetch(url, {
+    ...opts,
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(opts.headers as Record<string, string> | undefined),
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+export function githubAppService(db: Db) {
+  /** Get the current GitHub App row (at most one). */
+  async function getApp(): Promise<(typeof githubApps.$inferSelect) | null> {
+    const rows = await db.select().from(githubApps).limit(1);
+    return rows[0] ?? null;
+  }
+
+  /** Get the current GitHub App config as a public-safe type. */
+  async function getAppConfig(): Promise<GitHubAppConfig | null> {
+    const app = await getApp();
+    if (!app) return null;
+    return {
+      id: app.id,
+      githubAppId: app.githubAppId,
+      githubAppSlug: app.githubAppSlug,
+      appName: app.appName,
+      htmlUrl: app.htmlUrl,
+      permissions: app.permissions,
+      events: app.events,
+      createdAt: app.createdAt,
+    };
+  }
+
+  /** Get status summary. */
+  async function getStatus(): Promise<GitHubAppStatus> {
+    const app = await getApp();
+    if (!app) {
+      return { configured: false, appName: null, appSlug: null, htmlUrl: null, installationCount: 0 };
+    }
+    const installations = await db
+      .select()
+      .from(githubAppInstallations)
+      .where(eq(githubAppInstallations.githubAppId, app.id));
+    const activeCount = installations.filter((i) => !i.suspendedAt).length;
+    return {
+      configured: true,
+      appName: app.appName,
+      appSlug: app.githubAppSlug,
+      htmlUrl: app.htmlUrl,
+      installationCount: activeCount,
+    };
+  }
+
+  /** Generate the manifest JSON for creating the GitHub App. */
+  function generateManifest(publicUrl: string): Record<string, unknown> {
+    const base = publicUrl.replace(/\/+$/, "");
+    return {
+      name: `Paperclip (${process.env.PAPERCLIP_INSTANCE_ID || "default"})`,
+      url: base,
+      hook_attributes: {
+        url: `${base}/api/github/webhook`,
+        active: true,
+      },
+      redirect_url: `${base}/api/github/callback`,
+      setup_url: `${base}/github/setup-complete`,
+      callback_urls: [`${base}/api/github/callback`],
+      public: false,
+      default_permissions: {
+        contents: "write",
+        pull_requests: "write",
+        issues: "write",
+        metadata: "read",
+      },
+      default_events: ["installation", "installation_repositories"],
+    };
+  }
+
+  /** Exchange the code from GitHub manifest flow for app credentials. */
+  async function exchangeCode(code: string): Promise<GitHubAppConfig> {
+    const res = await githubFetch(`${GITHUB_API}/app-manifests/${code}/conversions`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      logger.error({ status: res.status, body: text }, "GitHub manifest code exchange failed");
+      throw new Error(`GitHub code exchange failed: ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      id: number;
+      slug: string;
+      name: string;
+      client_id: string;
+      client_secret: string;
+      pem: string;
+      webhook_secret: string;
+      permissions: Record<string, string>;
+      events: string[];
+      html_url: string;
+    };
+
+    // Store encrypted
+    const [row] = await db
+      .insert(githubApps)
+      .values({
+        githubAppId: data.id,
+        githubAppSlug: data.slug,
+        appName: data.name,
+        clientId: data.client_id,
+        clientSecretEncrypted: encrypt(data.client_secret),
+        privateKeyEncrypted: encrypt(data.pem),
+        webhookSecretEncrypted: encrypt(data.webhook_secret),
+        permissions: data.permissions,
+        events: data.events,
+        htmlUrl: data.html_url,
+      })
+      .returning();
+
+    logger.info(
+      { githubAppId: data.id, slug: data.slug },
+      "GitHub App created via manifest flow",
+    );
+
+    return {
+      id: row!.id,
+      githubAppId: data.id,
+      githubAppSlug: data.slug,
+      appName: data.name,
+      htmlUrl: data.html_url,
+      permissions: data.permissions,
+      events: data.events,
+      createdAt: row!.createdAt,
+    };
+  }
+
+  /** Delete the GitHub App config from Paperclip. */
+  async function deleteApp(): Promise<void> {
+    await db.delete(githubApps);
+    tokenCache.clear();
+    logger.info("GitHub App configuration removed");
+  }
+
+  /** List all installations. */
+  async function listInstallations(): Promise<GitHubAppInstallation[]> {
+    const app = await getApp();
+    if (!app) return [];
+    const rows = await db
+      .select()
+      .from(githubAppInstallations)
+      .where(eq(githubAppInstallations.githubAppId, app.id));
+    return rows.map((r) => ({
+      id: r.id,
+      installationId: r.installationId,
+      accountLogin: r.accountLogin,
+      accountType: r.accountType,
+      repositorySelection: r.repositorySelection,
+      suspendedAt: r.suspendedAt,
+      createdAt: r.createdAt,
+    }));
+  }
+
+  /** Get the install URL for the GitHub App. */
+  async function getInstallUrl(): Promise<string | null> {
+    const app = await getApp();
+    if (!app) return null;
+    return `https://github.com/apps/${app.githubAppSlug}/installations/new`;
+  }
+
+  /** Handle a webhook event from GitHub. */
+  async function handleWebhook(
+    event: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const app = await getApp();
+    if (!app) {
+      logger.warn("Received GitHub webhook but no app is configured");
+      return;
+    }
+
+    if (event === "installation") {
+      await handleInstallationEvent(app.id, payload);
+    } else if (event === "installation_repositories") {
+      logger.info(
+        { action: payload.action },
+        "Received installation_repositories webhook",
+      );
+    } else {
+      logger.debug({ event }, "Ignoring unhandled GitHub webhook event");
+    }
+  }
+
+  async function handleInstallationEvent(
+    appDbId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const action = payload.action as string;
+    const installation = payload.installation as {
+      id: number;
+      account: { login: string; type: string };
+      repository_selection: string;
+      suspended_at: string | null;
+    };
+
+    if (action === "created") {
+      const existing = await db
+        .select()
+        .from(githubAppInstallations)
+        .where(eq(githubAppInstallations.installationId, installation.id))
+        .then((rows) => rows[0]);
+
+      if (existing) {
+        await db
+          .update(githubAppInstallations)
+          .set({
+            accountLogin: installation.account.login,
+            accountType: installation.account.type,
+            repositorySelection: installation.repository_selection,
+            suspendedAt: installation.suspended_at
+              ? new Date(installation.suspended_at)
+              : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(githubAppInstallations.id, existing.id));
+      } else {
+        await db.insert(githubAppInstallations).values({
+          githubAppId: appDbId,
+          installationId: installation.id,
+          accountLogin: installation.account.login,
+          accountType: installation.account.type,
+          repositorySelection: installation.repository_selection,
+          suspendedAt: installation.suspended_at
+            ? new Date(installation.suspended_at)
+            : null,
+        });
+      }
+      logger.info(
+        { installationId: installation.id, account: installation.account.login },
+        "GitHub App installed",
+      );
+    } else if (action === "deleted") {
+      await db
+        .delete(githubAppInstallations)
+        .where(eq(githubAppInstallations.installationId, installation.id));
+      tokenCache.delete(installation.id);
+      logger.info(
+        { installationId: installation.id },
+        "GitHub App installation removed",
+      );
+    } else if (action === "suspend") {
+      await db
+        .update(githubAppInstallations)
+        .set({ suspendedAt: new Date(), updatedAt: new Date() })
+        .where(eq(githubAppInstallations.installationId, installation.id));
+      tokenCache.delete(installation.id);
+      logger.info(
+        { installationId: installation.id },
+        "GitHub App installation suspended",
+      );
+    } else if (action === "unsuspend") {
+      await db
+        .update(githubAppInstallations)
+        .set({ suspendedAt: null, updatedAt: new Date() })
+        .where(eq(githubAppInstallations.installationId, installation.id));
+      logger.info(
+        { installationId: installation.id },
+        "GitHub App installation unsuspended",
+      );
+    }
+  }
+
+  /** Sync installations from GitHub API. */
+  async function syncInstallations(): Promise<void> {
+    const app = await getApp();
+    if (!app) return;
+
+    const privateKey = decrypt(app.privateKeyEncrypted);
+    const jwt = generateJwt(app.githubAppId, privateKey);
+
+    const res = await githubFetch(`${GITHUB_API}/app/installations`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    if (!res.ok) {
+      logger.error({ status: res.status }, "Failed to list installations from GitHub");
+      return;
+    }
+
+    const installations = (await res.json()) as Array<{
+      id: number;
+      account: { login: string; type: string };
+      repository_selection: string;
+      suspended_at: string | null;
+    }>;
+
+    for (const inst of installations) {
+      const existing = await db
+        .select()
+        .from(githubAppInstallations)
+        .where(eq(githubAppInstallations.installationId, inst.id))
+        .then((rows) => rows[0]);
+
+      if (existing) {
+        await db
+          .update(githubAppInstallations)
+          .set({
+            accountLogin: inst.account.login,
+            accountType: inst.account.type,
+            repositorySelection: inst.repository_selection,
+            suspendedAt: inst.suspended_at ? new Date(inst.suspended_at) : null,
+            updatedAt: new Date(),
+          })
+          .where(eq(githubAppInstallations.id, existing.id));
+      } else {
+        await db.insert(githubAppInstallations).values({
+          githubAppId: app.id,
+          installationId: inst.id,
+          accountLogin: inst.account.login,
+          accountType: inst.account.type,
+          repositorySelection: inst.repository_selection,
+          suspendedAt: inst.suspended_at ? new Date(inst.suspended_at) : null,
+        });
+      }
+    }
+
+    // Remove installations that no longer exist on GitHub
+    const existingRows = await db
+      .select()
+      .from(githubAppInstallations)
+      .where(eq(githubAppInstallations.githubAppId, app.id));
+    const remoteIds = new Set(installations.map((i) => i.id));
+    for (const row of existingRows) {
+      if (!remoteIds.has(row.installationId)) {
+        await db
+          .delete(githubAppInstallations)
+          .where(eq(githubAppInstallations.id, row.id));
+        tokenCache.delete(row.installationId);
+      }
+    }
+
+    logger.info({ count: installations.length }, "Synced GitHub App installations");
+  }
+
+  /** Verify a webhook signature (HMAC SHA-256). */
+  async function verifyWebhookSignature(
+    rawBody: Buffer,
+    signature: string | undefined,
+  ): Promise<boolean> {
+    if (!signature) return false;
+    const app = await getApp();
+    if (!app) return false;
+
+    const secret = decrypt(app.webhookSecretEncrypted);
+    const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
+    if (expected.length !== signature.length) return false;
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  }
+
+  /**
+   * Generate an installation access token for agent use.
+   * Returns null if no GitHub App is configured or no active installations exist.
+   */
+  async function generateInstallationToken(opts?: {
+    installationId?: number;
+  }): Promise<string | null> {
+    const app = await getApp();
+    if (!app) return null;
+
+    // Find the target installation
+    let targetInstallationId: number;
+    if (opts?.installationId) {
+      targetInstallationId = opts.installationId;
+    } else {
+      const installations = await db
+        .select()
+        .from(githubAppInstallations)
+        .where(eq(githubAppInstallations.githubAppId, app.id));
+      const active = installations.filter((i) => !i.suspendedAt);
+      if (active.length === 0) {
+        logger.warn("GitHub App configured but no active installations found");
+        return null;
+      }
+      targetInstallationId = active[0]!.installationId;
+    }
+
+    // Check cache first
+    const cached = getCachedToken(targetInstallationId);
+    if (cached) return cached;
+
+    // Generate JWT and request installation token
+    const privateKey = decrypt(app.privateKeyEncrypted);
+    const jwt = generateJwt(app.githubAppId, privateKey);
+
+    const res = await githubFetch(
+      `${GITHUB_API}/app/installations/${targetInstallationId}/access_tokens`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${jwt}` },
+      },
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      logger.error(
+        { status: res.status, body: text, installationId: targetInstallationId },
+        "Failed to generate installation access token",
+      );
+      return null;
+    }
+
+    const data = (await res.json()) as { token: string; expires_at: string };
+    setCachedToken(targetInstallationId, data.token, data.expires_at);
+
+    logger.debug(
+      { installationId: targetInstallationId },
+      "Generated GitHub installation access token",
+    );
+    return data.token;
+  }
+
+  /** Check if a GitHub App is configured with active installations. */
+  async function isConfigured(): Promise<boolean> {
+    const status = await getStatus();
+    return status.configured && status.installationCount > 0;
+  }
+
+  return {
+    getAppConfig,
+    getStatus,
+    generateManifest,
+    exchangeCode,
+    deleteApp,
+    listInstallations,
+    getInstallUrl,
+    handleWebhook,
+    syncInstallations,
+    verifyWebhookSignature,
+    generateInstallationToken,
+    isConfigured,
+  };
+}
+
+export type GitHubAppServiceInstance = ReturnType<typeof githubAppService>;

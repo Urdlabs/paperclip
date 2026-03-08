@@ -1,0 +1,4 @@
+#!/bin/sh
+# GIT_ASKPASS helper: echoes $GITHUB_TOKEN as the password for HTTPS git operations.
+# Used by agents that receive per-run installation tokens from the GitHub App integration.
+echo "$GITHUB_TOKEN"

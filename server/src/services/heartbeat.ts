@@ -22,6 +22,7 @@ import type { AdapterExecutionResult, AdapterInvocationMeta, AdapterSessionCodec
 import { createLocalAgentJwt } from "../agent-auth-jwt.js";
 import { parseObject, asBoolean, asNumber, appendWithCap, MAX_EXCERPT_BYTES } from "../adapters/utils.js";
 import { secretService } from "./secrets.js";
+import { githubAppService } from "./github-app.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 
 const MAX_LIVE_LOG_CHUNK_BYTES = 8 * 1024;
@@ -406,6 +407,7 @@ function resolveNextSessionState(input: {
 export function heartbeatService(db: Db) {
   const runLogStore = getRunLogStore();
   const secretsSvc = secretService(db);
+  const githubSvc = githubAppService(db);
 
   async function getAgent(agentId: string) {
     return db
@@ -1244,6 +1246,26 @@ export function heartbeatService(db: Db) {
         agent.companyId,
         mergedConfig,
       );
+
+      // Inject GitHub installation token if a GitHub App is configured and no
+      // explicit GITHUB_TOKEN is already set in the adapter config.
+      const resolvedEnv = (resolvedConfig.env ?? {}) as Record<string, string>;
+      if (!resolvedEnv.GITHUB_TOKEN && !resolvedEnv.GH_TOKEN) {
+        try {
+          const ghToken = await githubSvc.generateInstallationToken();
+          if (ghToken) {
+            resolvedConfig.env = {
+              ...resolvedEnv,
+              GITHUB_TOKEN: ghToken,
+              GH_TOKEN: ghToken,
+              GIT_ASKPASS: "/usr/local/bin/paperclip-git-askpass",
+            };
+          }
+        } catch (err) {
+          logger.warn({ err, agentId: agent.id, runId: run.id }, "Failed to generate GitHub installation token");
+        }
+      }
+
       const onAdapterMeta = async (meta: AdapterInvocationMeta) => {
         await appendRunEvent(currentRun, seq++, {
           eventType: "adapter.invoke",

@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
+import { githubApi } from "../api/github";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Settings, Check } from "lucide-react";
+import { Settings, Check, Github, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -381,6 +382,9 @@ export function CompanySettings() {
         </div>
       </div>
 
+      {/* GitHub Integration (instance-level) */}
+      <GitHubSection />
+
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
@@ -432,6 +436,207 @@ export function CompanySettings() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GitHubSection() {
+  const queryClient = useQueryClient();
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const statusQuery = useQuery({
+    queryKey: queryKeys.github.status,
+    queryFn: () => githubApi.getStatus(),
+    retry: false,
+  });
+
+  const installationsQuery = useQuery({
+    queryKey: queryKeys.github.installations,
+    queryFn: () => githubApi.getInstallations(),
+    enabled: statusQuery.data?.configured === true,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => githubApi.syncInstallations(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
+      queryClient.invalidateQueries({ queryKey: queryKeys.github.installations });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => githubApi.deleteApp(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
+      queryClient.invalidateQueries({ queryKey: queryKeys.github.installations });
+    },
+  });
+
+  const manifestMutation = useMutation({
+    mutationFn: () => githubApi.getManifest(),
+    onSuccess: (data) => {
+      // Submit hidden form to GitHub with the manifest
+      if (!formRef.current) return;
+      const input = formRef.current.querySelector("input[name=manifest]") as HTMLInputElement;
+      input.value = JSON.stringify(data.manifest);
+      formRef.current.submit();
+    },
+  });
+
+  const status = statusQuery.data;
+  const installations = installationsQuery.data?.installations ?? [];
+
+  // If status query failed with 401/403, user is likely not instance admin
+  // or not authenticated. We still show the section but with a hint.
+  if (statusQuery.error) {
+    return (
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          GitHub Integration
+        </div>
+        <div className="rounded-md border border-border px-4 py-4 text-sm text-muted-foreground">
+          GitHub integration is managed at the instance level. Sign in as an instance admin to configure.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        GitHub Integration
+      </div>
+      <div className="space-y-3 rounded-md border border-border px-4 py-4">
+        {!status?.configured ? (
+          <>
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Github className="h-4 w-4" />
+              <span>
+                Connect a GitHub App to give agents automatic access to private repositories.
+                Tokens are short-lived and scoped to installed repos.
+              </span>
+            </div>
+            {/* Hidden form for GitHub manifest flow (POST to GitHub) */}
+            <form
+              ref={formRef}
+              action="https://github.com/settings/apps/new"
+              method="post"
+              style={{ display: "none" }}
+            >
+              <input type="hidden" name="manifest" value="" />
+            </form>
+            <Button
+              size="sm"
+              onClick={() => manifestMutation.mutate()}
+              disabled={manifestMutation.isPending}
+            >
+              <Github className="h-3.5 w-3.5 mr-1.5" />
+              {manifestMutation.isPending ? "Preparing..." : "Connect GitHub"}
+            </Button>
+            {manifestMutation.isError && (
+              <p className="text-xs text-destructive">
+                {manifestMutation.error instanceof Error
+                  ? manifestMutation.error.message
+                  : "Failed to generate manifest"}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Github className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{status.appName}</span>
+                {status.htmlUrl && (
+                  <a
+                    href={status.htmlUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {status.installationCount} installation{status.installationCount !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {installations.length > 0 && (
+              <div className="space-y-1">
+                {installations.map((inst) => (
+                  <div
+                    key={inst.id}
+                    className="flex items-center justify-between rounded-sm bg-muted/30 px-2.5 py-1.5 text-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs">{inst.accountLogin}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({inst.accountType})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {inst.repositorySelection === "all" ? "All repos" : "Selected repos"}
+                      {inst.suspendedAt && (
+                        <span className="text-amber-600">Suspended</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {status.installationCount === 0 && (
+              <p className="text-sm text-amber-600">
+                No installations yet. Install the app on your GitHub repos to enable agent access.
+              </p>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const { url } = await githubApi.getInstallUrl();
+                    window.open(url, "_blank");
+                  } catch {
+                    // API error handled by query
+                  }
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Install on repos
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+                Sync
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={() => {
+                  const confirmed = window.confirm(
+                    "Disconnect the GitHub App? Agents will lose access to private repos via the app. The app itself is not deleted from GitHub.",
+                  );
+                  if (confirmed) deleteMutation.mutate();
+                }}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Disconnect
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -121,6 +121,9 @@ export type {
   AgentEnvConfig,
   CompanySecret,
   SecretProviderDescriptor,
+  GitHubAppConfig,
+  GitHubAppInstallation,
+  GitHubAppStatus,
 } from "./types/index.js";
 
 export {

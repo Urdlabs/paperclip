@@ -27,6 +27,7 @@ import { OrgChart } from "./pages/OrgChart";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
 import { InviteLandingPage } from "./pages/InviteLanding";
+import { GitHubSetupComplete } from "./pages/GitHubSetupComplete";
 import { queryKeys } from "./lib/queryKeys";
 import { useCompany } from "./context/CompanyContext";
 import { useDialog } from "./context/DialogContext";
@@ -209,6 +210,7 @@ export function App() {
         <Route path="invite/:token" element={<InviteLandingPage />} />
 
         <Route element={<CloudAccessGate />}>
+          <Route path="github/setup-complete" element={<GitHubSetupComplete />} />
           <Route index element={<CompanyRootRedirect />} />
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
           <Route path="issues" element={<UnprefixedBoardRedirect />} />

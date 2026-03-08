@@ -53,7 +53,8 @@ RUN groupadd --system paperclip && \
     chown -R paperclip:paperclip /app /paperclip
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/paperclip-git-askpass /usr/local/bin/paperclip-git-askpass
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/paperclip-git-askpass
 
 ENV NODE_ENV=production \
   HOME=/paperclip \

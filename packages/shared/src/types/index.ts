@@ -52,6 +52,7 @@ export type {
   JoinRequest,
   InstanceUserRoleGrant,
 } from "./access.js";
+export type { GitHubAppConfig, GitHubAppInstallation, GitHubAppStatus } from "./github.js";
 export type {
   CompanyPortabilityInclude,
   CompanyPortabilitySecretRequirement,

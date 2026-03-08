@@ -24,6 +24,7 @@ import { sidebarBadgeRoutes } from "./routes/sidebar-badges.js";
 import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
+import { githubRoutes, githubWebhookRoute } from "./routes/github.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -44,6 +45,9 @@ export async function createApp(
   },
 ) {
   const app = express();
+
+  // GitHub webhook needs raw body for HMAC verification — mount before json parser
+  app.use("/api", githubWebhookRoute(db));
 
   app.use(express.json());
   app.use(httpLogger);
@@ -120,6 +124,7 @@ export async function createApp(
       allowedHostnames: opts.allowedHostnames,
     }),
   );
+  api.use(githubRoutes(db));
   app.use("/api", api);
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
