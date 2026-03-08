@@ -256,7 +256,9 @@ export function githubAppService(db: Db) {
         issues: "write",
         metadata: "read",
       },
-      default_events: ["installation", "installation_repositories"],
+      // installation and installation_repositories events are delivered
+      // automatically to all GitHub Apps — they must NOT be listed here.
+      default_events: [],
     };
   }
 
