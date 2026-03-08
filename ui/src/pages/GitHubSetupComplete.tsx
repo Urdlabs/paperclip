@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Github, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
@@ -15,8 +15,17 @@ export function GitHubSetupComplete() {
   // Invalidate github status so Settings page picks up the new state
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
-    queryClient.invalidateQueries({ queryKey: queryKeys.github.installations });
   }, [queryClient]);
+
+  // Fetch status to get the latest app ID (the one just created)
+  const statusQuery = useQuery({
+    queryKey: queryKeys.github.status,
+    queryFn: () => githubApi.getStatus(),
+    retry: false,
+  });
+
+  // The most recently added app is the last one in the list
+  const latestApp = statusQuery.data?.apps?.at(-1);
 
   if (error) {
     return (
@@ -50,9 +59,11 @@ export function GitHubSetupComplete() {
         </p>
         <div className="flex flex-col items-center gap-2">
           <Button
+            disabled={!latestApp}
             onClick={async () => {
+              if (!latestApp) return;
               try {
-                const { url } = await githubApi.getInstallUrl();
+                const { url } = await githubApi.getInstallUrl(latestApp.id);
                 window.open(url, "_blank");
               } catch {
                 // fallback

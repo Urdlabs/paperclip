@@ -19,10 +19,16 @@ export interface GitHubAppInstallation {
   createdAt: Date;
 }
 
-export interface GitHubAppStatus {
-  configured: boolean;
-  appName: string | null;
-  appSlug: string | null;
+export interface GitHubAppEntry {
+  id: string;
+  appName: string;
+  appSlug: string;
   htmlUrl: string | null;
   installationCount: number;
+  installations: GitHubAppInstallation[];
+}
+
+export interface GitHubAppStatus {
+  configured: boolean;
+  apps: GitHubAppEntry[];
 }

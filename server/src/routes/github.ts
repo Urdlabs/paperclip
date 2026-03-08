@@ -108,37 +108,40 @@ export function githubRoutes(db: Db) {
     res.redirect(`https://github.com/apps/${result.githubAppSlug}/installations/new`);
   });
 
-  // DELETE /github/app — remove the GitHub App config
-  router.delete("/github/app", async (req: Request, res: Response) => {
+  // DELETE /github/app/:id — remove a specific GitHub App config
+  router.delete("/github/app/:id", async (req: Request, res: Response) => {
     requireInstanceAdmin(req);
-    await svc.deleteApp();
+    const appId = req.params.id as string;
+    await svc.deleteApp(appId);
     res.json({ ok: true });
   });
 
-  // GET /github/installations — list installations
+  // GET /github/installations — list all installations (flat, across all apps)
   router.get("/github/installations", async (req: Request, res: Response) => {
     requireBoard(req);
     const installations = await svc.listInstallations();
     res.json({ installations });
   });
 
-  // POST /github/installations/sync — sync installations from GitHub API
-  router.post("/github/installations/sync", async (req: Request, res: Response) => {
+  // POST /github/installations/:id/sync — sync a specific app's installations
+  router.post("/github/installations/:id/sync", async (req: Request, res: Response) => {
     requireInstanceAdmin(req);
-    await svc.syncInstallations();
+    const appId = req.params.id as string;
+    await svc.syncAppInstallations(appId);
     const installations = await svc.listInstallations();
     res.json({ installations });
   });
 
-  // GET /github/install-url — get URL to install the app on repos
-  router.get("/github/install-url", async (req: Request, res: Response) => {
+  // GET /github/install-url/:id — get URL to install a specific app on repos
+  router.get("/github/install-url/:id", async (req: Request, res: Response) => {
     requireBoard(req);
-    const url = await svc.getInstallUrl();
-    if (!url) throw notFound("No GitHub App configured");
+    const appId = req.params.id as string;
+    const url = await svc.getInstallUrl(appId);
+    if (!url) throw notFound("No GitHub App found with that ID");
     res.json({ url });
   });
 
-  // GET /github/status — check if GitHub App is configured
+  // GET /github/status — check if GitHub Apps are configured (returns all apps)
   router.get("/github/status", async (req: Request, res: Response) => {
     requireBoard(req);
     const status = await svc.getStatus();

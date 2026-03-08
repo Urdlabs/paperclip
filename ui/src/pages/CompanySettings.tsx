@@ -450,25 +450,17 @@ function GitHubSection() {
     retry: false,
   });
 
-  const installationsQuery = useQuery({
-    queryKey: queryKeys.github.installations,
-    queryFn: () => githubApi.getInstallations(),
-    enabled: statusQuery.data?.configured === true,
-  });
-
   const syncMutation = useMutation({
-    mutationFn: () => githubApi.syncInstallations(),
+    mutationFn: (appId: string) => githubApi.syncInstallations(appId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
-      queryClient.invalidateQueries({ queryKey: queryKeys.github.installations });
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => githubApi.deleteApp(),
+    mutationFn: (appId: string) => githubApi.deleteApp(appId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.github.status });
-      queryClient.invalidateQueries({ queryKey: queryKeys.github.installations });
     },
   });
 
@@ -485,7 +477,7 @@ function GitHubSection() {
   });
 
   const status = statusQuery.data;
-  const installations = installationsQuery.data?.installations ?? [];
+  const apps = status?.apps ?? [];
 
   // If status query failed with 401/403, user is likely not instance admin
   // or not authenticated. We still show the section but with a hint.
@@ -508,58 +500,26 @@ function GitHubSection() {
         GitHub Integration
       </div>
       <div className="space-y-3 rounded-md border border-border px-4 py-4">
-        {!status?.configured ? (
-          <>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Github className="h-4 w-4" />
-              <span>
-                Connect a GitHub App to give agents automatic access to private repositories.
-                Tokens are short-lived and scoped to installed repos.
-              </span>
-            </div>
-            {/* Hidden form for GitHub manifest flow (POST to GitHub) */}
-            <form
-              ref={formRef}
-              action="https://github.com/settings/apps/new"
-              method="post"
-              style={{ display: "none" }}
-            >
-              <input type="hidden" name="manifest" value="" />
-            </form>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="GitHub organization (optional)"
-                value={githubOrg}
-                onChange={(e) => setGithubOrg(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={() => manifestMutation.mutate(githubOrg || undefined)}
-                disabled={manifestMutation.isPending}
-              >
-                <Github className="h-3.5 w-3.5 mr-1.5" />
-                {manifestMutation.isPending ? "Preparing..." : "Connect GitHub"}
-              </Button>
-            </div>
-            {manifestMutation.isError && (
-              <p className="text-xs text-destructive">
-                {manifestMutation.error instanceof Error
-                  ? manifestMutation.error.message
-                  : "Failed to generate manifest"}
-              </p>
-            )}
-          </>
-        ) : (
-          <>
+        {apps.length === 0 && (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Github className="h-4 w-4" />
+            <span>
+              Connect a GitHub App to give agents automatic access to private repositories.
+              Tokens are short-lived and scoped to installed repos.
+            </span>
+          </div>
+        )}
+
+        {/* Per-app cards */}
+        {apps.map((app) => (
+          <div key={app.id} className="space-y-2 rounded-md border border-border px-3 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Github className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{status.appName}</span>
-                {status.htmlUrl && (
+                <span className="text-sm font-medium">{app.appName}</span>
+                {app.htmlUrl && (
                   <a
-                    href={status.htmlUrl}
+                    href={app.htmlUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground"
@@ -569,13 +529,13 @@ function GitHubSection() {
                 )}
               </div>
               <span className="text-xs text-muted-foreground">
-                {status.installationCount} installation{status.installationCount !== 1 ? "s" : ""}
+                {app.installationCount} installation{app.installationCount !== 1 ? "s" : ""}
               </span>
             </div>
 
-            {installations.length > 0 && (
+            {app.installations.length > 0 && (
               <div className="space-y-1">
-                {installations.map((inst) => (
+                {app.installations.map((inst) => (
                   <div
                     key={inst.id}
                     className="flex items-center justify-between rounded-sm bg-muted/30 px-2.5 py-1.5 text-sm"
@@ -597,7 +557,7 @@ function GitHubSection() {
               </div>
             )}
 
-            {status.installationCount === 0 && (
+            {app.installationCount === 0 && (
               <p className="text-sm text-amber-600">
                 No installations yet. Install the app on your GitHub repos to enable agent access.
               </p>
@@ -609,7 +569,7 @@ function GitHubSection() {
                 variant="outline"
                 onClick={async () => {
                   try {
-                    const { url } = await githubApi.getInstallUrl();
+                    const { url } = await githubApi.getInstallUrl(app.id);
                     window.open(url, "_blank");
                   } catch {
                     // API error handled by query
@@ -622,7 +582,7 @@ function GitHubSection() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => syncMutation.mutate()}
+                onClick={() => syncMutation.mutate(app.id)}
                 disabled={syncMutation.isPending}
               >
                 <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncMutation.isPending ? "animate-spin" : ""}`} />
@@ -634,9 +594,9 @@ function GitHubSection() {
                 className="text-destructive hover:text-destructive"
                 onClick={() => {
                   const confirmed = window.confirm(
-                    "Disconnect the GitHub App? Agents will lose access to private repos via the app. The app itself is not deleted from GitHub.",
+                    `Disconnect "${app.appName}"? Agents will lose access to private repos via this app. The app itself is not deleted from GitHub.`,
                   );
-                  if (confirmed) deleteMutation.mutate();
+                  if (confirmed) deleteMutation.mutate(app.id);
                 }}
                 disabled={deleteMutation.isPending}
               >
@@ -644,7 +604,42 @@ function GitHubSection() {
                 Disconnect
               </Button>
             </div>
-          </>
+          </div>
+        ))}
+
+        {/* Add GitHub App form — always visible */}
+        {/* Hidden form for GitHub manifest flow (POST to GitHub) */}
+        <form
+          ref={formRef}
+          action="https://github.com/settings/apps/new"
+          method="post"
+          style={{ display: "none" }}
+        >
+          <input type="hidden" name="manifest" value="" />
+        </form>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="GitHub organization (optional)"
+            value={githubOrg}
+            onChange={(e) => setGithubOrg(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2.5 text-sm"
+          />
+          <Button
+            size="sm"
+            onClick={() => manifestMutation.mutate(githubOrg || undefined)}
+            disabled={manifestMutation.isPending}
+          >
+            <Github className="h-3.5 w-3.5 mr-1.5" />
+            {manifestMutation.isPending ? "Preparing..." : apps.length > 0 ? "Add another GitHub App" : "Connect GitHub"}
+          </Button>
+        </div>
+        {manifestMutation.isError && (
+          <p className="text-xs text-destructive">
+            {manifestMutation.error instanceof Error
+              ? manifestMutation.error.message
+              : "Failed to generate manifest"}
+          </p>
         )}
       </div>
     </div>

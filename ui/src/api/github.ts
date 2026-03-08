@@ -8,20 +8,20 @@ export const githubApi = {
       org ? `/github/manifest?org=${encodeURIComponent(org)}` : "/github/manifest",
     ),
 
-  /** Get the current GitHub App status. */
+  /** Get the current GitHub App status (all apps). */
   getStatus: () => api.get<GitHubAppStatus>("/github/status"),
 
-  /** List all GitHub App installations. */
+  /** List all GitHub App installations (flat, across all apps). */
   getInstallations: () =>
     api.get<{ installations: GitHubAppInstallation[] }>("/github/installations"),
 
-  /** Sync installations from GitHub API. */
-  syncInstallations: () =>
-    api.post<{ installations: GitHubAppInstallation[] }>("/github/installations/sync", {}),
+  /** Sync installations for a specific app from GitHub API. */
+  syncInstallations: (appId: string) =>
+    api.post<{ installations: GitHubAppInstallation[] }>(`/github/installations/${appId}/sync`, {}),
 
-  /** Get the URL to install the app on repos. */
-  getInstallUrl: () => api.get<{ url: string }>("/github/install-url"),
+  /** Get the URL to install a specific app on repos. */
+  getInstallUrl: (appId: string) => api.get<{ url: string }>(`/github/install-url/${appId}`),
 
-  /** Remove the GitHub App configuration. */
-  deleteApp: () => api.delete<{ ok: boolean }>("/github/app"),
+  /** Remove a specific GitHub App configuration. */
+  deleteApp: (appId: string) => api.delete<{ ok: boolean }>(`/github/app/${appId}`),
 };

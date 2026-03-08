@@ -194,16 +194,22 @@ async function githubFetch(url: string, opts: RequestInit = {}): Promise<Respons
 // ---------------------------------------------------------------------------
 
 export function githubAppService(db: Db) {
-  /** Get the current GitHub App row (at most one). */
-  async function getApp(): Promise<(typeof githubApps.$inferSelect) | null> {
-    const rows = await db.select().from(githubApps).limit(1);
+  /** Get all GitHub App rows. */
+  async function getApps(): Promise<(typeof githubApps.$inferSelect)[]> {
+    return db.select().from(githubApps);
+  }
+
+  /** Get a specific GitHub App row by ID. */
+  async function getAppById(appId: string): Promise<(typeof githubApps.$inferSelect) | null> {
+    const rows = await db.select().from(githubApps).where(eq(githubApps.id, appId));
     return rows[0] ?? null;
   }
 
   /** Get the current GitHub App config as a public-safe type. */
   async function getAppConfig(): Promise<GitHubAppConfig | null> {
-    const app = await getApp();
-    if (!app) return null;
+    const apps = await getApps();
+    if (apps.length === 0) return null;
+    const app = apps[0]!;
     return {
       id: app.id,
       githubAppId: app.githubAppId,
@@ -216,23 +222,41 @@ export function githubAppService(db: Db) {
     };
   }
 
-  /** Get status summary. */
+  /** Get status summary with all apps and their installations. */
   async function getStatus(): Promise<GitHubAppStatus> {
-    const app = await getApp();
-    if (!app) {
-      return { configured: false, appName: null, appSlug: null, htmlUrl: null, installationCount: 0 };
+    const apps = await getApps();
+    if (apps.length === 0) {
+      return { configured: false, apps: [] };
     }
-    const installations = await db
-      .select()
-      .from(githubAppInstallations)
-      .where(eq(githubAppInstallations.githubAppId, app.id));
-    const activeCount = installations.filter((i) => !i.suspendedAt).length;
+
+    const allInstallations = await db.select().from(githubAppInstallations);
+
+    const appEntries = apps.map((app) => {
+      const appInstallations = allInstallations.filter(
+        (i) => i.githubAppId === app.id,
+      );
+      const activeInstallations = appInstallations.filter((i) => !i.suspendedAt);
+      return {
+        id: app.id,
+        appName: app.appName,
+        appSlug: app.githubAppSlug,
+        htmlUrl: app.htmlUrl,
+        installationCount: activeInstallations.length,
+        installations: appInstallations.map((r) => ({
+          id: r.id,
+          installationId: r.installationId,
+          accountLogin: r.accountLogin,
+          accountType: r.accountType,
+          repositorySelection: r.repositorySelection,
+          suspendedAt: r.suspendedAt,
+          createdAt: r.createdAt,
+        })),
+      };
+    });
+
     return {
       configured: true,
-      appName: app.appName,
-      appSlug: app.githubAppSlug,
-      htmlUrl: app.htmlUrl,
-      installationCount: activeCount,
+      apps: appEntries,
     };
   }
 
@@ -319,21 +343,18 @@ export function githubAppService(db: Db) {
     };
   }
 
-  /** Delete the GitHub App config from Paperclip. */
-  async function deleteApp(): Promise<void> {
-    await db.delete(githubApps);
+  /** Delete a specific GitHub App config from Paperclip by ID. */
+  async function deleteApp(appId: string): Promise<void> {
+    // Delete associated installations first
+    await db.delete(githubAppInstallations).where(eq(githubAppInstallations.githubAppId, appId));
+    await db.delete(githubApps).where(eq(githubApps.id, appId));
     tokenCache.clear();
-    logger.info("GitHub App configuration removed");
+    logger.info({ appId }, "GitHub App configuration removed");
   }
 
-  /** List all installations. */
+  /** List all installations across all apps. */
   async function listInstallations(): Promise<GitHubAppInstallation[]> {
-    const app = await getApp();
-    if (!app) return [];
-    const rows = await db
-      .select()
-      .from(githubAppInstallations)
-      .where(eq(githubAppInstallations.githubAppId, app.id));
+    const rows = await db.select().from(githubAppInstallations);
     return rows.map((r) => ({
       id: r.id,
       installationId: r.installationId,
@@ -345,9 +366,9 @@ export function githubAppService(db: Db) {
     }));
   }
 
-  /** Get the install URL for the GitHub App. */
-  async function getInstallUrl(): Promise<string | null> {
-    const app = await getApp();
+  /** Get the install URL for a specific GitHub App. */
+  async function getInstallUrl(appId: string): Promise<string | null> {
+    const app = await getAppById(appId);
     if (!app) return null;
     return `https://github.com/apps/${app.githubAppSlug}/installations/new`;
   }
@@ -357,14 +378,30 @@ export function githubAppService(db: Db) {
     event: string,
     payload: Record<string, unknown>,
   ): Promise<void> {
-    const app = await getApp();
-    if (!app) {
-      logger.warn("Received GitHub webhook but no app is configured");
-      return;
+    // Determine which app this webhook belongs to by matching the installation's app_id
+    const installation = payload.installation as { app_id?: number } | undefined;
+    let appDbId: string | null = null;
+
+    if (installation?.app_id) {
+      const apps = await getApps();
+      const matchingApp = apps.find((a) => a.githubAppId === installation.app_id);
+      if (matchingApp) {
+        appDbId = matchingApp.id;
+      }
+    }
+
+    if (!appDbId) {
+      // Fallback: try to find any configured app
+      const apps = await getApps();
+      if (apps.length === 0) {
+        logger.warn("Received GitHub webhook but no app is configured");
+        return;
+      }
+      appDbId = apps[0]!.id;
     }
 
     if (event === "installation") {
-      await handleInstallationEvent(app.id, payload);
+      await handleInstallationEvent(appDbId, payload);
     } else if (event === "installation_repositories") {
       logger.info(
         { action: payload.action },
@@ -454,9 +491,9 @@ export function githubAppService(db: Db) {
     }
   }
 
-  /** Sync installations from GitHub API. */
-  async function syncInstallations(): Promise<void> {
-    const app = await getApp();
+  /** Sync installations for a specific app from GitHub API. */
+  async function syncAppInstallations(appId: string): Promise<void> {
+    const app = await getAppById(appId);
     if (!app) return;
 
     const privateKey = decrypt(app.privateKeyEncrypted);
@@ -466,7 +503,7 @@ export function githubAppService(db: Db) {
       headers: { Authorization: `Bearer ${jwt}` },
     });
     if (!res.ok) {
-      logger.error({ status: res.status }, "Failed to list installations from GitHub");
+      logger.error({ status: res.status, appId }, "Failed to list installations from GitHub");
       return;
     }
 
@@ -522,53 +559,87 @@ export function githubAppService(db: Db) {
       }
     }
 
-    logger.info({ count: installations.length }, "Synced GitHub App installations");
+    logger.info({ count: installations.length, appId }, "Synced GitHub App installations");
   }
 
-  /** Verify a webhook signature (HMAC SHA-256). */
+  /** Sync installations for all apps from GitHub API. */
+  async function syncInstallations(): Promise<void> {
+    const apps = await getApps();
+    for (const app of apps) {
+      await syncAppInstallations(app.id);
+    }
+  }
+
+  /** Verify a webhook signature (HMAC SHA-256). Tries each app's webhook secret. */
   async function verifyWebhookSignature(
     rawBody: Buffer,
     signature: string | undefined,
   ): Promise<boolean> {
     if (!signature) return false;
-    const app = await getApp();
-    if (!app) return false;
+    const apps = await getApps();
+    if (apps.length === 0) return false;
 
-    const secret = decrypt(app.webhookSecretEncrypted);
-    const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
-    if (expected.length !== signature.length) return false;
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+    for (const app of apps) {
+      const secret = decrypt(app.webhookSecretEncrypted);
+      const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
+      if (expected.length === signature.length) {
+        if (timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
    * Generate an installation access token for agent use.
+   * Iterates across all apps to find the first active installation.
    * Returns null if no GitHub App is configured or no active installations exist.
    */
   async function generateInstallationToken(opts?: {
     installationId?: number;
   }): Promise<string | null> {
-    const app = await getApp();
-    if (!app) return null;
+    const apps = await getApps();
+    if (apps.length === 0) return null;
 
-    // Find the target installation
-    let targetInstallationId: number;
     if (opts?.installationId) {
-      targetInstallationId = opts.installationId;
-    } else {
+      // Find which app owns this installation
+      const instRow = await db
+        .select()
+        .from(githubAppInstallations)
+        .where(eq(githubAppInstallations.installationId, opts.installationId))
+        .then((rows) => rows[0]);
+      if (!instRow) return null;
+
+      const app = await getAppById(instRow.githubAppId);
+      if (!app) return null;
+
+      return generateTokenForInstallation(app, opts.installationId);
+    }
+
+    // Try each app's installations to find the first active one
+    for (const app of apps) {
       const installations = await db
         .select()
         .from(githubAppInstallations)
         .where(eq(githubAppInstallations.githubAppId, app.id));
       const active = installations.filter((i) => !i.suspendedAt);
-      if (active.length === 0) {
-        logger.warn("GitHub App configured but no active installations found");
-        return null;
-      }
-      targetInstallationId = active[0]!.installationId;
+      if (active.length === 0) continue;
+
+      const token = await generateTokenForInstallation(app, active[0]!.installationId);
+      if (token) return token;
     }
 
+    logger.warn("GitHub Apps configured but no active installations found");
+    return null;
+  }
+
+  async function generateTokenForInstallation(
+    app: typeof githubApps.$inferSelect,
+    installationId: number,
+  ): Promise<string | null> {
     // Check cache first
-    const cached = getCachedToken(targetInstallationId);
+    const cached = getCachedToken(installationId);
     if (cached) return cached;
 
     // Generate JWT and request installation token
@@ -576,7 +647,7 @@ export function githubAppService(db: Db) {
     const jwt = generateJwt(app.githubAppId, privateKey);
 
     const res = await githubFetch(
-      `${GITHUB_API}/app/installations/${targetInstallationId}/access_tokens`,
+      `${GITHUB_API}/app/installations/${installationId}/access_tokens`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${jwt}` },
@@ -586,17 +657,17 @@ export function githubAppService(db: Db) {
     if (!res.ok) {
       const text = await res.text();
       logger.error(
-        { status: res.status, body: text, installationId: targetInstallationId },
+        { status: res.status, body: text, installationId },
         "Failed to generate installation access token",
       );
       return null;
     }
 
     const data = (await res.json()) as { token: string; expires_at: string };
-    setCachedToken(targetInstallationId, data.token, data.expires_at);
+    setCachedToken(installationId, data.token, data.expires_at);
 
     logger.debug(
-      { installationId: targetInstallationId },
+      { installationId },
       "Generated GitHub installation access token",
     );
     return data.token;
@@ -605,7 +676,7 @@ export function githubAppService(db: Db) {
   /** Check if a GitHub App is configured with active installations. */
   async function isConfigured(): Promise<boolean> {
     const status = await getStatus();
-    return status.configured && status.installationCount > 0;
+    return status.configured && status.apps.some((a) => a.installationCount > 0);
   }
 
   return {
@@ -618,6 +689,7 @@ export function githubAppService(db: Db) {
     getInstallUrl,
     handleWebhook,
     syncInstallations,
+    syncAppInstallations,
     verifyWebhookSignature,
     generateInstallationToken,
     isConfigured,
