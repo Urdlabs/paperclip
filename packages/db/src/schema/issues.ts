@@ -37,6 +37,7 @@ export const issues = pgTable(
     createdByUserId: text("created_by_user_id"),
     issueNumber: integer("issue_number"),
     identifier: text("identifier"),
+    externalUrl: text("external_url"),
     requestDepth: integer("request_depth").notNull().default(0),
     billingCode: text("billing_code"),
     assigneeAdapterOverrides: jsonb("assignee_adapter_overrides").$type<Record<string, unknown>>(),
@@ -62,5 +63,6 @@ export const issues = pgTable(
     parentIdx: index("issues_company_parent_idx").on(table.companyId, table.parentId),
     projectIdx: index("issues_company_project_idx").on(table.companyId, table.projectId),
     identifierIdx: uniqueIndex("issues_identifier_idx").on(table.identifier),
+    externalUrlIdx: index("issues_external_url_idx").on(table.externalUrl),
   }),
 );

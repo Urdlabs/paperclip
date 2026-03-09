@@ -10,9 +10,10 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, chmodSync } from "n
 import path from "node:path";
 import { eq, or, isNull, and } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { githubApps, githubAppInstallations } from "@paperclipai/db";
+import { githubApps, githubAppInstallations, projectWorkspaces, projects, issues } from "@paperclipai/db";
 import type { GitHubAppConfig, GitHubAppInstallation, GitHubAppStatus } from "@paperclipai/shared";
 import { logger as rootLogger } from "../middleware/logger.js";
+import { issueService } from "./issues.js";
 
 const logger = rootLogger.child({ service: "github-app" });
 
@@ -296,7 +297,12 @@ export function githubAppService(db: Db) {
       },
       // installation and installation_repositories events are delivered
       // automatically to all GitHub Apps — they must NOT be listed here.
-      default_events: [],
+      default_events: [
+        "issues",
+        "issue_comment",
+        "pull_request",
+        "pull_request_review_comment",
+      ],
     };
   }
 
@@ -422,6 +428,13 @@ export function githubAppService(db: Db) {
         { action: payload.action },
         "Received installation_repositories webhook",
       );
+    } else if (
+      event === "issues" ||
+      event === "issue_comment" ||
+      event === "pull_request" ||
+      event === "pull_request_review_comment"
+    ) {
+      await handleRepoEvent(appDbId, event, payload);
     } else {
       logger.debug({ event }, "Ignoring unhandled GitHub webhook event");
     }
@@ -503,6 +516,270 @@ export function githubAppService(db: Db) {
         { installationId: installation.id },
         "GitHub App installation unsuspended",
       );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Repo-event helpers (issues, PRs, comments → Paperclip issues)
+  // ---------------------------------------------------------------------------
+
+  function normalizeRepoUrl(url: string): string {
+    return url.replace(/\/+$/, "").replace(/\.git$/, "").toLowerCase();
+  }
+
+  async function resolveProjectFromRepo(companyId: string, repoUrl: string) {
+    const normalized = normalizeRepoUrl(repoUrl);
+    const workspaces = await db
+      .select({
+        workspace: projectWorkspaces,
+        project: projects,
+      })
+      .from(projectWorkspaces)
+      .innerJoin(projects, eq(projects.id, projectWorkspaces.projectId))
+      .where(eq(projectWorkspaces.companyId, companyId));
+
+    for (const row of workspaces) {
+      if (row.workspace.repoUrl && normalizeRepoUrl(row.workspace.repoUrl) === normalized) {
+        return { project: row.project, workspace: row.workspace };
+      }
+    }
+    return null;
+  }
+
+  const issueSvc = issueService(db);
+
+  // Lazy import to avoid circular dependency (heartbeat.ts → github-app.ts)
+  let _heartbeat: ReturnType<typeof import("./heartbeat.js").heartbeatService> | null = null;
+  async function getHeartbeat() {
+    if (!_heartbeat) {
+      const { heartbeatService } = await import("./heartbeat.js");
+      _heartbeat = heartbeatService(db);
+    }
+    return _heartbeat;
+  }
+
+  async function handleRepoEvent(
+    appDbId: string,
+    event: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    // Resolve companyId from the app record
+    const app = await getAppById(appDbId);
+    if (!app) {
+      logger.warn({ appDbId }, "GitHub webhook: app not found");
+      return;
+    }
+    const companyId = app.companyId;
+    if (!companyId) {
+      logger.debug({ appDbId, event }, "GitHub webhook: app has no companyId, skipping repo event");
+      return;
+    }
+
+    const repo = payload.repository as { html_url?: string } | undefined;
+    if (!repo?.html_url) {
+      logger.debug({ event }, "GitHub webhook: no repository.html_url in payload");
+      return;
+    }
+
+    const resolved = await resolveProjectFromRepo(companyId, repo.html_url);
+    if (!resolved) {
+      logger.debug({ event, repoUrl: repo.html_url }, "GitHub webhook: no matching project workspace");
+      return;
+    }
+
+    const { project } = resolved;
+    if (!project.leadAgentId) {
+      logger.debug({ event, projectId: project.id }, "GitHub webhook: project has no lead agent");
+      return;
+    }
+
+    const action = payload.action as string;
+
+    if (event === "issues" && action === "opened") {
+      await handleGitHubIssueOpened(companyId, project, payload);
+    } else if (event === "pull_request" && action === "opened") {
+      await handleGitHubPrOpened(companyId, project, payload);
+    } else if (event === "issue_comment" && action === "created") {
+      await handleGitHubIssueComment(companyId, project, payload);
+    } else if (event === "pull_request_review_comment" && action === "created") {
+      await handleGitHubPrReviewComment(companyId, project, payload);
+    } else {
+      logger.debug({ event, action }, "GitHub webhook: unhandled action for repo event");
+    }
+  }
+
+  function truncate(text: string | null | undefined, max: number): string {
+    if (!text) return "";
+    return text.length > max ? text.slice(0, max) + "…" : text;
+  }
+
+  async function findIssueByExternalUrl(companyId: string, externalUrl: string) {
+    const rows = await db
+      .select()
+      .from(issues)
+      .where(and(eq(issues.companyId, companyId), eq(issues.externalUrl, externalUrl)));
+    return rows[0] ?? null;
+  }
+
+  async function createPaperclipIssue(
+    companyId: string,
+    project: typeof projects.$inferSelect,
+    opts: { title: string; description: string; externalUrl: string },
+  ) {
+    const issue = await issueSvc.create(companyId, {
+      title: opts.title,
+      description: opts.description,
+      externalUrl: opts.externalUrl,
+      projectId: project.id,
+      status: "todo",
+      assigneeAgentId: project.leadAgentId,
+    });
+    logger.info(
+      { issueId: issue.id, externalUrl: opts.externalUrl, projectId: project.id },
+      "Created Paperclip issue from GitHub event",
+    );
+    return issue;
+  }
+
+  function wakeAgent(agentId: string, reason: string, issueId: string) {
+    void getHeartbeat()
+      .then((hb) =>
+        hb.wakeup(agentId, {
+          source: "automation",
+          triggerDetail: "system",
+          reason,
+          payload: { issueId },
+          contextSnapshot: { issueId, source: "github_webhook" },
+        }),
+      )
+      .catch((err) => logger.warn({ err, agentId, reason }, "Failed to wake agent from GitHub webhook"));
+  }
+
+  async function handleGitHubIssueOpened(
+    companyId: string,
+    project: typeof projects.$inferSelect,
+    payload: Record<string, unknown>,
+  ) {
+    const ghIssue = payload.issue as {
+      html_url: string;
+      title: string;
+      body?: string | null;
+    };
+    const externalUrl = ghIssue.html_url;
+
+    // Deduplicate
+    const existing = await findIssueByExternalUrl(companyId, externalUrl);
+    if (existing) {
+      logger.debug({ externalUrl }, "GitHub issue already tracked, skipping");
+      return;
+    }
+
+    const description = `GitHub issue: ${externalUrl}\n\n${truncate(ghIssue.body, 4000)}`;
+    const issue = await createPaperclipIssue(companyId, project, {
+      title: ghIssue.title,
+      description,
+      externalUrl,
+    });
+    wakeAgent(project.leadAgentId!, "github_issue_opened", issue.id);
+  }
+
+  async function handleGitHubPrOpened(
+    companyId: string,
+    project: typeof projects.$inferSelect,
+    payload: Record<string, unknown>,
+  ) {
+    const pr = payload.pull_request as {
+      html_url: string;
+      title: string;
+      body?: string | null;
+    };
+    const externalUrl = pr.html_url;
+
+    const existing = await findIssueByExternalUrl(companyId, externalUrl);
+    if (existing) {
+      logger.debug({ externalUrl }, "GitHub PR already tracked, skipping");
+      return;
+    }
+
+    const description = `Pull request: ${externalUrl}\n\n${truncate(pr.body, 4000)}`;
+    const issue = await createPaperclipIssue(companyId, project, {
+      title: `PR: ${pr.title}`,
+      description,
+      externalUrl,
+    });
+    wakeAgent(project.leadAgentId!, "github_pr_opened", issue.id);
+  }
+
+  async function handleGitHubIssueComment(
+    companyId: string,
+    project: typeof projects.$inferSelect,
+    payload: Record<string, unknown>,
+  ) {
+    const ghIssue = payload.issue as {
+      html_url: string;
+      title: string;
+      body?: string | null;
+    };
+    const comment = payload.comment as {
+      body?: string | null;
+      user?: { login?: string };
+    };
+    const externalUrl = ghIssue.html_url;
+    const commenter = comment.user?.login ?? "unknown";
+    const commentBody = `**${commenter}** commented on GitHub:\n\n${truncate(comment.body, 4000)}`;
+
+    let tracked = await findIssueByExternalUrl(companyId, externalUrl);
+    if (!tracked) {
+      // Create new issue from the GitHub issue
+      const description = `GitHub issue: ${externalUrl}\n\n${truncate(ghIssue.body, 4000)}`;
+      tracked = await createPaperclipIssue(companyId, project, {
+        title: ghIssue.title,
+        description,
+        externalUrl,
+      });
+    }
+
+    await issueSvc.addComment(tracked.id, commentBody, {});
+    const agentToWake = tracked.assigneeAgentId ?? project.leadAgentId;
+    if (agentToWake) {
+      wakeAgent(agentToWake, "github_issue_commented", tracked.id);
+    }
+  }
+
+  async function handleGitHubPrReviewComment(
+    companyId: string,
+    project: typeof projects.$inferSelect,
+    payload: Record<string, unknown>,
+  ) {
+    const pr = payload.pull_request as {
+      html_url: string;
+      title: string;
+      body?: string | null;
+    };
+    const comment = payload.comment as {
+      body?: string | null;
+      user?: { login?: string };
+      path?: string;
+    };
+    const externalUrl = pr.html_url;
+    const reviewer = comment.user?.login ?? "unknown";
+    const filePath = comment.path ? ` on \`${comment.path}\`` : "";
+    const commentBody = `**${reviewer}** commented${filePath} on GitHub PR:\n\n${truncate(comment.body, 4000)}`;
+
+    let tracked = await findIssueByExternalUrl(companyId, externalUrl);
+    if (!tracked) {
+      const description = `Pull request: ${externalUrl}\n\n${truncate(pr.body, 4000)}`;
+      tracked = await createPaperclipIssue(companyId, project, {
+        title: `PR: ${pr.title}`,
+        description,
+        externalUrl,
+      });
+    }
+
+    await issueSvc.addComment(tracked.id, commentBody, {});
+    const agentToWake = tracked.assigneeAgentId ?? project.leadAgentId;
+    if (agentToWake) {
+      wakeAgent(agentToWake, "github_pr_review_comment", tracked.id);
     }
   }
 

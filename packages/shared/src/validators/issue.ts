@@ -22,6 +22,7 @@ export const createIssueSchema = z.object({
   billingCode: z.string().optional().nullable(),
   assigneeAdapterOverrides: issueAssigneeAdapterOverridesSchema.optional().nullable(),
   labelIds: z.array(z.string().uuid()).optional(),
+  externalUrl: z.string().url().optional().nullable(),
 });
 
 export type CreateIssue = z.infer<typeof createIssueSchema>;
