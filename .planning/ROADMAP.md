@@ -28,11 +28,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The dashboard shows token usage and cost attribution filterable by agent, project, and individual run
   3. Context window utilization is displayed as a percentage breakdown showing what fills the context for each run
   4. During an active run, a live token counter updates in real-time showing current consumption
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md -- Schema extension, shared types, token estimation service, cost service extension, heartbeat integration
+- [ ] 01-02-PLAN.md -- Real-time Claude usage stream parsing, debounced WebSocket event emission
+- [ ] 01-03-PLAN.md -- UI: Costs page token metrics, run detail token breakdown, context utilization bar, live counter
 
 ### Phase 2: Context Optimization Pipeline
 **Goal**: Agent runs consume significantly fewer tokens through smarter context preparation, compression, and budget enforcement
@@ -87,7 +88,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Token Analytics Foundation | 0/0 | Not started | - |
+| 1. Token Analytics Foundation | 0/3 | Planning complete | - |
 | 2. Context Optimization Pipeline | 0/0 | Not started | - |
 | 3. Observability & Monitoring UX | 0/0 | Not started | - |
 | 4. Notifications & Agent Capabilities | 0/0 | Not started | - |
