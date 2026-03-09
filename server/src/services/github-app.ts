@@ -302,6 +302,7 @@ export function githubAppService(db: Db) {
         "issue_comment",
         "pull_request",
         "pull_request_review_comment",
+        "workflow_run",
       ],
     };
   }
@@ -432,7 +433,8 @@ export function githubAppService(db: Db) {
       event === "issues" ||
       event === "issue_comment" ||
       event === "pull_request" ||
-      event === "pull_request_review_comment"
+      event === "pull_request_review_comment" ||
+      event === "workflow_run"
     ) {
       await handleRepoEvent(appDbId, event, payload);
     } else {
@@ -603,6 +605,8 @@ export function githubAppService(db: Db) {
       await handleGitHubIssueComment(companyId, project, payload);
     } else if (event === "pull_request_review_comment" && action === "created") {
       await handleGitHubPrReviewComment(companyId, project, payload);
+    } else if (event === "workflow_run" && action === "completed") {
+      await handleGitHubWorkflowRunFailed(companyId, project, payload);
     } else {
       logger.debug({ event, action }, "GitHub webhook: unhandled action for repo event");
     }
@@ -781,6 +785,48 @@ export function githubAppService(db: Db) {
     if (agentToWake) {
       wakeAgent(agentToWake, "github_pr_review_comment", tracked.id);
     }
+  }
+
+  async function handleGitHubWorkflowRunFailed(
+    companyId: string,
+    project: typeof projects.$inferSelect,
+    payload: Record<string, unknown>,
+  ) {
+    const workflowRun = payload.workflow_run as {
+      conclusion?: string | null;
+      html_url: string;
+      name?: string;
+      head_branch?: string;
+      head_sha?: string;
+      run_number?: number;
+      pull_requests?: Array<{ url: string; number: number; html_url?: string }>;
+    };
+
+    // Only act on failures
+    if (workflowRun.conclusion !== "failure") return;
+
+    const externalUrl = workflowRun.html_url;
+
+    const existing = await findIssueByExternalUrl(companyId, externalUrl);
+    if (existing) {
+      logger.debug({ externalUrl }, "GitHub workflow run failure already tracked, skipping");
+      return;
+    }
+
+    const workflowName = workflowRun.name ?? "Workflow";
+    const branch = workflowRun.head_branch ?? "unknown";
+    const runNum = workflowRun.run_number ? `#${workflowRun.run_number}` : "";
+    const sha = workflowRun.head_sha?.slice(0, 7) ?? "";
+
+    const title = `CI failure: ${workflowName} ${runNum} on ${branch}`;
+    const description = `Pipeline failed: ${externalUrl}\n\nWorkflow: ${workflowName}\nBranch: ${branch}\nCommit: ${sha}`;
+
+    const issue = await createPaperclipIssue(companyId, project, {
+      title,
+      description,
+      externalUrl,
+    });
+    wakeAgent(project.leadAgentId!, "github_pipeline_failed", issue.id);
   }
 
   /** Sync installations for a specific app from GitHub API. */
