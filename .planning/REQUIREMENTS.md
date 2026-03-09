@@ -85,30 +85,30 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TOKN-01 | — | Pending |
-| TOKN-02 | — | Pending |
-| TOKN-03 | — | Pending |
-| TOKN-04 | — | Pending |
-| TOPT-01 | — | Pending |
-| TOPT-02 | — | Pending |
-| TOPT-03 | — | Pending |
-| TOPT-04 | — | Pending |
-| TOPT-05 | — | Pending |
-| NOTF-01 | — | Pending |
-| NOTF-02 | — | Pending |
-| NOTF-03 | — | Pending |
-| MNTR-01 | — | Pending |
-| MNTR-02 | — | Pending |
-| MNTR-03 | — | Pending |
-| AGNT-01 | — | Pending |
-| AGNT-02 | — | Pending |
-| AGNT-03 | — | Pending |
+| TOKN-01 | Phase 1 | Pending |
+| TOKN-02 | Phase 1 | Pending |
+| TOKN-03 | Phase 1 | Pending |
+| TOKN-04 | Phase 1 | Pending |
+| TOPT-01 | Phase 2 | Pending |
+| TOPT-02 | Phase 2 | Pending |
+| TOPT-03 | Phase 2 | Pending |
+| TOPT-04 | Phase 2 | Pending |
+| TOPT-05 | Phase 2 | Pending |
+| NOTF-01 | Phase 4 | Pending |
+| NOTF-02 | Phase 4 | Pending |
+| NOTF-03 | Phase 4 | Pending |
+| MNTR-01 | Phase 3 | Pending |
+| MNTR-02 | Phase 3 | Pending |
+| MNTR-03 | Phase 3 | Pending |
+| AGNT-01 | Phase 4 | Pending |
+| AGNT-02 | Phase 4 | Pending |
+| AGNT-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-09*
-*Last updated: 2026-03-09 after initial definition*
+*Last updated: 2026-03-09 after roadmap creation*
