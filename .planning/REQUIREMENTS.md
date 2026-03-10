@@ -12,7 +12,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **TOKN-01**: System tracks input/output/cached tokens per run, broken down by phase (system prompt, issue context, tool calls, conversation history)
 - [ ] **TOKN-02**: Dashboard shows token usage per agent, per project, and per run with cost attribution
 - [ ] **TOKN-03**: Context window utilization metrics show percentage breakdown of what fills the context (system prompt, issue context, files, history)
-- [ ] **TOKN-04**: Real-time token counter displays live token consumption during active runs via WebSocket
+- [x] **TOKN-04**: Real-time token counter displays live token consumption during active runs via WebSocket
 
 ### Token Optimization
 
@@ -88,7 +88,7 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | TOKN-01 | Phase 1 | Pending |
 | TOKN-02 | Phase 1 | Pending |
 | TOKN-03 | Phase 1 | Pending |
-| TOKN-04 | Phase 1 | Pending |
+| TOKN-04 | Phase 1 | Complete |
 | TOPT-01 | Phase 2 | Pending |
 | TOPT-02 | Phase 2 | Pending |
 | TOPT-03 | Phase 2 | Pending |
