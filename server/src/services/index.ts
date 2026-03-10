@@ -19,3 +19,4 @@ export { notifyHireApproved, type NotifyHireApprovedInput } from "./hire-hook.js
 export { publishLiveEvent, subscribeCompanyLiveEvents } from "./live-events.js";
 export { createStorageServiceFromConfig, getStorageService } from "../storage/index.js";
 export { githubAppService, type GitHubAppServiceInstance } from "./github-app.js";
+export { createUsageTracker } from "./claude-usage-streaming.js";
