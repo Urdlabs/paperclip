@@ -64,7 +64,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Sync with upstream Paperclip source repo (general)
 
 ### Blockers/Concerns
 
