@@ -169,6 +169,28 @@ export function Costs() {
             </CardContent>
           </Card>
 
+          {/* Token Analytics Summary */}
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Total Tokens</p>
+                <p className="text-2xl font-bold">{formatTokens(data.summary.totalTokens)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Cache Hit Rate</p>
+                <p className="text-2xl font-bold">{data.summary.cacheHitRate.toFixed(1)}%</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Avg Tokens/Run</p>
+                <p className="text-2xl font-bold">{formatTokens(data.summary.avgTokensPerRun)}</p>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* By Agent / By Project */}
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
@@ -197,6 +219,9 @@ export function Costs() {
                           <span className="text-xs text-muted-foreground block">
                             in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
                           </span>
+                          <span className="text-xs font-mono text-muted-foreground block">
+                            cached {formatTokens(row.cachedInputTokens)} ({((row.cachedInputTokens / Math.max(1, row.inputTokens)) * 100).toFixed(1)}% eff)
+                          </span>
                           {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
                             <span className="text-xs text-muted-foreground block">
                               {row.apiRunCount > 0 ? `api runs: ${row.apiRunCount}` : null}
@@ -224,12 +249,17 @@ export function Costs() {
                     {data.byProject.map((row) => (
                       <div
                         key={row.projectId ?? "na"}
-                        className="flex items-center justify-between text-sm"
+                        className="flex items-start justify-between text-sm"
                       >
                         <span className="truncate">
                           {row.projectName ?? row.projectId ?? "Unattributed"}
                         </span>
-                        <span className="font-medium">{formatCents(row.costCents)}</span>
+                        <div className="text-right shrink-0 ml-2">
+                          <span className="font-medium block">{formatCents(row.costCents)}</span>
+                          <span className="text-xs font-mono text-muted-foreground block">
+                            cached {formatTokens(row.cachedInputTokens)} ({((row.cachedInputTokens / Math.max(1, row.inputTokens)) * 100).toFixed(1)}% eff)
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>

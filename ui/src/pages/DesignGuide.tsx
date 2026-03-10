@@ -123,6 +123,8 @@ import { FilterBar, type FilterValue } from "@/components/FilterBar";
 import { InlineEditor } from "@/components/InlineEditor";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Identity } from "@/components/Identity";
+import { ContextUtilizationBar } from "@/components/ContextUtilizationBar";
+import { TokenBreakdown } from "@/components/TokenBreakdown";
 
 /* ------------------------------------------------------------------ */
 /*  Section wrapper                                                    */
@@ -1045,6 +1047,37 @@ export function DesignGuide() {
             </div>
           ))}
         </div>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  CONTEXT UTILIZATION BAR                                      */}
+      {/* ============================================================ */}
+      <Section title="Context Utilization Bar">
+        <SubSection title="Thresholds">
+          <div className="space-y-3">
+            <ContextUtilizationBar usedTokens={10000} contextWindowSize={200000} />
+            <ContextUtilizationBar usedTokens={140000} contextWindowSize={200000} />
+            <ContextUtilizationBar usedTokens={180000} contextWindowSize={200000} />
+          </div>
+        </SubSection>
+        <SubSection title="Edge Cases">
+          <div className="space-y-3">
+            <ContextUtilizationBar usedTokens={0} contextWindowSize={200000} />
+            <ContextUtilizationBar usedTokens={200000} contextWindowSize={200000} />
+          </div>
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  TOKEN BREAKDOWN                                              */}
+      {/* ============================================================ */}
+      <Section title="Token Breakdown">
+        <SubSection title="With Data">
+          <TokenBreakdown breakdown={{ systemPrompt: 1200, skillsTools: 3500, issueContext: 800, fileContent: 5000, history: 2500 }} />
+        </SubSection>
+        <SubSection title="Empty State">
+          <TokenBreakdown breakdown={{ systemPrompt: 0, skillsTools: 0, issueContext: 0, fileContent: 0, history: 0 }} />
+        </SubSection>
       </Section>
 
       {/* ============================================================ */}
