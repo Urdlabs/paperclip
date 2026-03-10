@@ -15,6 +15,10 @@ function readString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function readNumber(value: unknown): number {
+  return typeof value === "number" ? value : 0;
+}
+
 function readRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -466,6 +470,21 @@ function handleLiveEvent(
   const nameOf = (id: string) => resolveAgentName(queryClient, expectedCompanyId, id);
   const payload = event.payload ?? {};
   if (event.type === "heartbeat.run.log") {
+    return;
+  }
+
+  if (event.type === "heartbeat.run.usage") {
+    const runId = readString(payload.runId);
+    if (runId) {
+      queryClient.setQueryData(
+        ["live-usage", runId],
+        {
+          inputTokens: readNumber(payload.inputTokens),
+          outputTokens: readNumber(payload.outputTokens),
+          cachedInputTokens: readNumber(payload.cachedInputTokens),
+        },
+      );
+    }
     return;
   }
 

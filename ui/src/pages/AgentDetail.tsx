@@ -57,6 +57,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { AgentIcon, AgentIconPicker } from "../components/AgentIconPicker";
 import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type AgentRuntimeState, type LiveEvent } from "@paperclipai/shared";
+import type { TokenBreakdown as TokenBreakdownData, UsageJsonExtended } from "@paperclipai/shared";
+import { TokenBreakdown } from "../components/TokenBreakdown";
+import { ContextUtilizationBar } from "../components/ContextUtilizationBar";
 import { agentRouteRef } from "../lib/utils";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
@@ -674,6 +677,7 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
 }
 
 function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: string }) {
+  const latestQueryClient = useQueryClient();
   if (runs.length === 0) return null;
 
   const sorted = [...runs].sort(
@@ -688,6 +692,11 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
   const summary = run.resultJson
     ? String((run.resultJson as Record<string, unknown>).summary ?? (run.resultJson as Record<string, unknown>).result ?? "")
     : run.error ?? "";
+
+  // Live usage for running runs
+  const cardLiveUsage = isLive
+    ? latestQueryClient.getQueryData<{ inputTokens: number; outputTokens: number; cachedInputTokens: number }>(queryKeys.liveUsage(run.id))
+    : null;
 
   return (
     <div className="space-y-3">
@@ -731,6 +740,13 @@ function LatestRunCard({ runs, agentId }: { runs: HeartbeatRun[]; agentId: strin
           </span>
           <span className="ml-auto text-xs text-muted-foreground">{relativeTime(run.createdAt)}</span>
         </div>
+
+        {isLive && cardLiveUsage && (
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>Tokens: {formatTokens(cardLiveUsage.inputTokens + cardLiveUsage.outputTokens)}</span>
+          </div>
+        )}
 
         {summary && (
           <div className="overflow-hidden max-h-16">
@@ -1355,6 +1371,19 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
   const [sessionOpen, setSessionOpen] = useState(false);
   const [claudeLoginResult, setClaudeLoginResult] = useState<ClaudeLoginResult | null>(null);
 
+  // Token analysis data
+  const usageData = (run.usageJson ?? null) as UsageJsonExtended | null;
+  const breakdown = usageData?.breakdown ?? null;
+  const contextWindowSize = usageData?.contextWindowSize ?? null;
+
+  // Live usage for running runs
+  const isRunActive = run.status === "running" && !!run.startedAt && !run.finishedAt;
+  const liveUsageData = queryClient.getQueryData<{
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+  }>(queryKeys.liveUsage(run.id));
+
   useEffect(() => {
     setClaudeLoginResult(null);
   }, [run.id]);
@@ -1706,6 +1735,30 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
           </div>
         )}
       </div>
+
+      {/* Live token counter for active runs */}
+      {isRunActive && liveUsageData && (
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <span>Tokens: {formatTokens(liveUsageData.inputTokens + liveUsageData.outputTokens)}</span>
+        </div>
+      )}
+
+      {/* Token Analysis Section */}
+      {(breakdown || contextWindowSize) && (
+        <div className="border border-border rounded-lg p-4 space-y-4">
+          <h3 className="text-sm font-semibold">Token Analysis</h3>
+
+          {contextWindowSize != null && contextWindowSize > 0 && (
+            <ContextUtilizationBar
+              usedTokens={metrics.input + metrics.output}
+              contextWindowSize={contextWindowSize}
+            />
+          )}
+
+          {breakdown && <TokenBreakdown breakdown={breakdown} />}
+        </div>
+      )}
 
       {/* Issues touched by this run */}
       {touchedIssues && touchedIssues.length > 0 && (
