@@ -24,6 +24,7 @@ import { parseObject, asBoolean, asNumber, asString, appendWithCap, MAX_EXCERPT_
 import { secretService } from "./secrets.js";
 import { githubAppService } from "./github-app.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
+import { createUsageTracker } from "./claude-usage-streaming.js";
 
 const activeRunExecutions = new Set<string>();
 
@@ -1227,6 +1228,24 @@ export function heartbeatService(db: Db) {
         })
         .where(eq(heartbeatRuns.id, runId));
 
+      const isClaudeAdapter = agent.adapterType === "claude_local";
+      const usageTracker = isClaudeAdapter
+        ? createUsageTracker({
+            emitIntervalMs: 2000,
+            onEmit: (usage) => {
+              publishLiveEvent({
+                companyId: run.companyId,
+                type: "heartbeat.run.usage",
+                payload: {
+                  runId: run.id,
+                  agentId: run.agentId,
+                  ...usage,
+                },
+              });
+            },
+          })
+        : null;
+
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
         if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, chunk);
         if (stream === "stderr") stderrExcerpt = appendExcerpt(stderrExcerpt, chunk);
@@ -1255,6 +1274,10 @@ export function heartbeatService(db: Db) {
             truncated: payloadChunk.length !== chunk.length,
           },
         });
+
+        if (usageTracker && stream === "stdout") {
+          usageTracker.processChunk(chunk);
+        }
       };
       for (const warning of runtimeWorkspaceWarnings) {
         await onLog("stderr", `[paperclip] ${warning}\n`);
@@ -1390,6 +1413,12 @@ export function heartbeatService(db: Db) {
           .where(eq(heartbeatRuns.id, run.id))
           .catch(() => {});
       }
+
+      // Flush any buffered usage data as a final event
+      if (usageTracker) {
+        usageTracker.flush();
+      }
+
       const nextSessionState = resolveNextSessionState({
         codec: sessionCodec,
         adapterResult,
@@ -1432,6 +1461,24 @@ export function heartbeatService(db: Db) {
               ...(adapterResult.billingType ? { billingType: adapterResult.billingType } : {}),
             } as Record<string, unknown>)
           : null;
+
+      // Emit a single usage event for non-Claude adapters at run completion
+      if (!isClaudeAdapter && usageJson) {
+        const finalUsage = adapterResult.usage;
+        if (finalUsage && (finalUsage.inputTokens || finalUsage.outputTokens)) {
+          publishLiveEvent({
+            companyId: run.companyId,
+            type: "heartbeat.run.usage",
+            payload: {
+              runId: run.id,
+              agentId: run.agentId,
+              inputTokens: finalUsage.inputTokens ?? 0,
+              outputTokens: finalUsage.outputTokens ?? 0,
+              cachedInputTokens: finalUsage.cachedInputTokens ?? 0,
+            },
+          });
+        }
+      }
 
       await setRunStatus(run.id, status, {
         finishedAt: new Date(),
