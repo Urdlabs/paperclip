@@ -92,11 +92,32 @@ export function costService(db: Db) {
           ? (spendCents / company.budgetMonthlyCents) * 100
           : 0;
 
+      const [tokenStats] = await db
+        .select({
+          totalTokens: sql<number>`coalesce(sum(${costEvents.inputTokens} + ${costEvents.outputTokens}), 0)::int`,
+          totalCached: sql<number>`coalesce(sum(${costEvents.cachedInputTokens}), 0)::int`,
+          totalInput: sql<number>`coalesce(sum(${costEvents.inputTokens}), 0)::int`,
+          runCount: sql<number>`count(*)::int`,
+        })
+        .from(costEvents)
+        .where(and(...conditions));
+
+      const totalTokens = Number(tokenStats.totalTokens);
+      const cacheHitRate =
+        Number(tokenStats.totalInput) > 0
+          ? Number(((Number(tokenStats.totalCached) / Number(tokenStats.totalInput)) * 100).toFixed(1))
+          : 0;
+      const avgTokensPerRun =
+        Number(tokenStats.runCount) > 0 ? Math.round(totalTokens / Number(tokenStats.runCount)) : 0;
+
       return {
         companyId,
         spendCents,
         budgetCents: company.budgetMonthlyCents,
         utilizationPercent: Number(utilization.toFixed(2)),
+        totalTokens,
+        cacheHitRate,
+        avgTokensPerRun,
       };
     },
 
@@ -113,6 +134,7 @@ export function costService(db: Db) {
           costCents: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
           inputTokens: sql<number>`coalesce(sum(${costEvents.inputTokens}), 0)::int`,
           outputTokens: sql<number>`coalesce(sum(${costEvents.outputTokens}), 0)::int`,
+          cachedInputTokens: sql<number>`coalesce(sum(${costEvents.cachedInputTokens}), 0)::int`,
         })
         .from(costEvents)
         .leftJoin(agents, eq(costEvents.agentId, agents.id))
@@ -192,6 +214,7 @@ export function costService(db: Db) {
           costCents: costCentsExpr,
           inputTokens: sql<number>`coalesce(sum(coalesce((${heartbeatRuns.usageJson} ->> 'inputTokens')::int, 0)), 0)::int`,
           outputTokens: sql<number>`coalesce(sum(coalesce((${heartbeatRuns.usageJson} ->> 'outputTokens')::int, 0)), 0)::int`,
+          cachedInputTokens: sql<number>`coalesce(sum(coalesce((${heartbeatRuns.usageJson} ->> 'cachedInputTokens')::int, 0)), 0)::int`,
         })
         .from(runProjectLinks)
         .innerJoin(heartbeatRuns, eq(runProjectLinks.runId, heartbeatRuns.id))

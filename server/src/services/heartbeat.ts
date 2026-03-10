@@ -25,6 +25,8 @@ import { secretService } from "./secrets.js";
 import { githubAppService } from "./github-app.js";
 import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { createUsageTracker } from "./claude-usage-streaming.js";
+import { estimatePromptBreakdown } from "./token-estimation.js";
+import { getContextWindowSize } from "@paperclipai/shared";
 
 const activeRunExecutions = new Set<string>();
 
@@ -1006,6 +1008,7 @@ export function heartbeatService(db: Db) {
         model: result.model ?? "unknown",
         inputTokens,
         outputTokens,
+        cachedInputTokens,
         costCents: additionalCostCents,
         occurredAt: new Date(),
       });
@@ -1391,6 +1394,23 @@ export function heartbeatService(db: Db) {
           .catch(() => {});
       }, 60_000);
 
+      // Estimate token breakdown for prompt components before adapter execution
+      const instructionsFilePath = asString(resolvedConfig.instructionsFilePath, "").trim();
+      let instructionsContent: string | null = null;
+      if (instructionsFilePath) {
+        try {
+          instructionsContent = await fs.readFile(instructionsFilePath, "utf-8");
+        } catch { /* file not readable, estimate as 0 */ }
+      }
+      const promptTemplate = asString(resolvedConfig.promptTemplate, "");
+      const sessionResuming = !!runtimeForAdapter.sessionId;
+      const breakdown = estimatePromptBreakdown({
+        promptTemplate,
+        instructionsContent,
+        contextSnapshot: context,
+        sessionResuming,
+      });
+
       let adapterResult: AdapterExecutionResult;
       try {
         adapterResult = await adapter.execute({
@@ -1453,12 +1473,17 @@ export function heartbeatService(db: Db) {
               ? "timed_out"
               : "failed";
 
+      const modelStr = adapterResult.model ?? asString(resolvedConfig.model, "unknown");
+      const contextWindowSize = getContextWindowSize(modelStr);
+
       const usageJson =
         adapterResult.usage || adapterResult.costUsd != null
           ? ({
               ...(adapterResult.usage ?? {}),
               ...(adapterResult.costUsd != null ? { costUsd: adapterResult.costUsd } : {}),
               ...(adapterResult.billingType ? { billingType: adapterResult.billingType } : {}),
+              breakdown,
+              contextWindowSize,
             } as Record<string, unknown>)
           : null;
 
