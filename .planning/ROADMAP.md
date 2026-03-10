@@ -12,7 +12,7 @@ This milestone transforms Paperclip from a functional agent orchestrator into on
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Token Analytics Foundation** - Instrument token consumption per run with cost attribution and real-time visibility
+- [x] **Phase 1: Token Analytics Foundation** - Instrument token consumption per run with cost attribution and real-time visibility
 - [ ] **Phase 2: Context Optimization Pipeline** - Reduce agent token consumption through serialization, compression, caching, and budgets
 - [ ] **Phase 3: Observability & Monitoring UX** - Trace visualization, filtered activity feeds, and analytics dashboards
 - [ ] **Phase 4: Notifications & Agent Capabilities** - Outgoing webhooks, failure alerting, task decomposition, skills, and code review workflows
@@ -31,9 +31,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Schema extension, shared types, token estimation service, cost service extension, heartbeat integration
-- [ ] 01-02-PLAN.md -- Real-time Claude usage stream parsing, debounced WebSocket event emission
-- [ ] 01-03-PLAN.md -- UI: Costs page token metrics, run detail token breakdown, context utilization bar, live counter
+- [x] 01-01-PLAN.md -- Schema extension, shared types, token estimation service, cost service extension, heartbeat integration
+- [x] 01-02-PLAN.md -- Real-time Claude usage stream parsing, debounced WebSocket event emission
+- [x] 01-03-PLAN.md -- UI: Costs page token metrics, run detail token breakdown, context utilization bar, live counter
 
 ### Phase 2: Context Optimization Pipeline
 **Goal**: Agent runs consume significantly fewer tokens through smarter context preparation, compression, and budget enforcement
@@ -88,7 +88,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Token Analytics Foundation | 0/3 | Planning complete | - |
+| 1. Token Analytics Foundation | 3/3 | Complete | 2026-03-10 |
 | 2. Context Optimization Pipeline | 0/0 | Not started | - |
 | 3. Observability & Monitoring UX | 0/0 | Not started | - |
 | 4. Notifications & Agent Capabilities | 0/0 | Not started | - |
