@@ -63,6 +63,8 @@ export {
   type PermissionKey,
 } from "./constants.js";
 
+export { MODEL_CONTEXT_LIMITS, DEFAULT_CONTEXT_LIMIT, getContextWindowSize } from "./model-context-limits.js";
+
 export type {
   Company,
   Agent,
@@ -88,6 +90,8 @@ export type {
   CostEvent,
   CostSummary,
   CostByAgent,
+  TokenBreakdown,
+  UsageJsonExtended,
   HeartbeatRun,
   HeartbeatRunEvent,
   AgentRuntimeState,

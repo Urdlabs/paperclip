@@ -20,6 +20,9 @@ export interface CostSummary {
   spendCents: number;
   budgetCents: number;
   utilizationPercent: number;
+  totalTokens: number;
+  cacheHitRate: number;
+  avgTokensPerRun: number;
 }
 
 export interface CostByAgent {
@@ -33,4 +36,5 @@ export interface CostByAgent {
   subscriptionRunCount: number;
   subscriptionInputTokens: number;
   subscriptionOutputTokens: number;
+  cachedInputTokens: number;
 }

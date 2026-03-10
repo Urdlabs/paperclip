@@ -34,6 +34,7 @@ export type {
   SecretProviderDescriptor,
 } from "./secrets.js";
 export type { CostEvent, CostSummary, CostByAgent } from "./cost.js";
+export type { TokenBreakdown, UsageJsonExtended } from "./usage.js";
 export type {
   HeartbeatRun,
   HeartbeatRunEvent,

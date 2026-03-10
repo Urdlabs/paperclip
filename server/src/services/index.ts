@@ -9,6 +9,7 @@ export { activityService, type ActivityFilters } from "./activity.js";
 export { approvalService } from "./approvals.js";
 export { secretService } from "./secrets.js";
 export { costService } from "./costs.js";
+export { estimateTokens, estimatePromptBreakdown, computeContextUtilization } from "./token-estimation.js";
 export { heartbeatService } from "./heartbeat.js";
 export { dashboardService } from "./dashboard.js";
 export { sidebarBadgeService } from "./sidebar-badges.js";
