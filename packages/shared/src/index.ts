@@ -132,6 +132,13 @@ export type {
 } from "./types/index.js";
 
 export {
+  TASK_TYPES,
+  type TaskType,
+  type TaskTypeTemplateConfig,
+  type LabelMapping,
+} from "./types/task-types.js";
+
+export {
   createCompanySchema,
   updateCompanySchema,
   type CreateCompany,
