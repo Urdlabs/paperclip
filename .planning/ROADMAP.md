@@ -50,7 +50,7 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md -- Context pipeline core: shared types, pipeline runner, 4 processors (task-type resolver, context serializer, deduplicator, prompt reorderer)
 - [x] 02-02-PLAN.md -- Token budget resolution service (three-tier hierarchy) and usage tracker budget warning extension
-- [ ] 02-03-PLAN.md -- Heartbeat integration, adapter compaction env var, budget bar UI, compression metrics display
+- [x] 02-03-PLAN.md -- Heartbeat integration, adapter compaction env var, budget bar UI, compression metrics display
 
 ### Phase 3: Observability & Monitoring UX
 **Goal**: Operators can deeply inspect agent execution and understand system behavior through traces, filtered feeds, and rich analytics charts
