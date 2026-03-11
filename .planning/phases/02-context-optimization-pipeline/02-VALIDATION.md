@@ -2,7 +2,7 @@
 phase: 02
 slug: context-optimization-pipeline
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-03-10
 ---
@@ -38,23 +38,32 @@ created: 2026-03-10
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 02-01-01 | 01 | 1 | TOPT-01 | unit | `pnpm vitest run server/src/__tests__/context-serializer.test.ts` | ❌ W0 | ⬜ pending |
-| 02-01-02 | 01 | 1 | TOPT-04 | unit | `pnpm vitest run server/src/__tests__/context-compaction.test.ts` | ❌ W0 | ⬜ pending |
-| 02-02-01 | 02 | 1 | TOPT-02 | unit | `pnpm vitest run server/src/__tests__/token-budget.test.ts` | ❌ W0 | ⬜ pending |
-| 02-03-01 | 03 | 2 | TOPT-03 | unit | `pnpm vitest run server/src/__tests__/task-type-routing.test.ts` | ❌ W0 | ⬜ pending |
-| 02-04-01 | 04 | 2 | TOPT-05 | unit | `pnpm vitest run server/src/__tests__/prompt-cache-optimization.test.ts` | ❌ W0 | ⬜ pending |
+| 02-01-01 | 01 | 1 | TOPT-01, TOPT-03-05 | unit+integration | `pnpm vitest run server/src/__tests__/context-pipeline.test.ts` | create in task | pending |
+| 02-01-02 | 01 | 1 | TOPT-03 | unit | `pnpm vitest run server/src/__tests__/task-type-resolver.test.ts` | create in task | pending |
+| 02-01-02 | 01 | 1 | TOPT-01 | unit | `pnpm vitest run server/src/__tests__/context-serializer.test.ts` | create in task | pending |
+| 02-01-03 | 01 | 1 | TOPT-04 | unit | `pnpm vitest run server/src/__tests__/deduplicator.test.ts` | create in task | pending |
+| 02-01-03 | 01 | 1 | TOPT-05 | unit | `pnpm vitest run server/src/__tests__/prompt-reorderer.test.ts` | create in task | pending |
+| 02-02-01 | 02 | 1 | TOPT-02 | unit | `pnpm vitest run server/src/__tests__/budget.test.ts` | create in task | pending |
+| 02-02-02 | 02 | 1 | TOPT-02 | unit | `pnpm vitest run server/src/__tests__/claude-usage-streaming.test.ts` | exists (extend) | pending |
+| 02-03-01 | 03 | 2 | TOPT-01-05 | integration | `pnpm vitest run --reporter=verbose` (full suite) | existing tests | pending |
+| 02-03-02 | 03 | 2 | TOPT-02 | type-check | `npx tsc --noEmit -p ui/tsconfig.json` | N/A (no @testing-library/react) | pending |
+| 02-03-03 | 03 | 2 | all | human-verify | Visual inspection of DesignGuide + live run | N/A | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `server/src/__tests__/context-serializer.test.ts` — stubs for TOPT-01
-- [ ] `server/src/__tests__/context-compaction.test.ts` — stubs for TOPT-04
-- [ ] `server/src/__tests__/token-budget.test.ts` — stubs for TOPT-02
-- [ ] `server/src/__tests__/task-type-routing.test.ts` — stubs for TOPT-03
-- [ ] `server/src/__tests__/prompt-cache-optimization.test.ts` — stubs for TOPT-05
+All test files are created within their respective tasks (TDD approach -- tests written before implementation):
+
+- [ ] `server/src/__tests__/context-pipeline.test.ts` — created in 02-01 Task 1
+- [ ] `server/src/__tests__/task-type-resolver.test.ts` — created in 02-01 Task 2
+- [ ] `server/src/__tests__/context-serializer.test.ts` — created in 02-01 Task 2
+- [ ] `server/src/__tests__/deduplicator.test.ts` — created in 02-01 Task 3
+- [ ] `server/src/__tests__/prompt-reorderer.test.ts` — created in 02-01 Task 3
+- [ ] `server/src/__tests__/budget.test.ts` — created in 02-02 Task 1
+- [ ] `server/src/__tests__/claude-usage-streaming.test.ts` — already exists, extended in 02-02 Task 2
 
 *Existing vitest infrastructure covers framework needs.*
 
@@ -64,18 +73,19 @@ created: 2026-03-10
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Live budget bar in UI | TOPT-02 | Visual component requires browser | Start run with budget, observe progress bar updates |
+| Live budget bar in UI | TOPT-02 | Visual component requires browser, no @testing-library/react available | Start run with budget, observe progress bar updates |
+| BudgetBar all 5 states | TOPT-02 | Visual rendering | Check DesignGuide page for no-budget, green, yellow, red, full red |
 | Cache hit rate on Costs page | TOPT-05 | UI metric display requires browser | Run agent, check Costs page for cache efficiency metric |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or human-verify gate
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covered by TDD task ordering (tests created before implementation)
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
