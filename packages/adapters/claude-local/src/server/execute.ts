@@ -200,6 +200,12 @@ async function buildClaudeRuntimeConfig(input: ClaudeExecutionInput): Promise<Cl
     if (typeof value === "string") env[key] = value;
   }
 
+  // Inject auto-compaction configuration for conversation history management (TOPT-04)
+  const autoCompactPct = asNumber(config.autoCompactPct, 0);
+  if (autoCompactPct > 0 && autoCompactPct <= 100) {
+    env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(autoCompactPct);
+  }
+
   if (!hasExplicitApiKey && authToken) {
     env.PAPERCLIP_API_KEY = authToken;
   }

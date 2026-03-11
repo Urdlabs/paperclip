@@ -11,6 +11,9 @@ import {
   heartbeatRuns,
   costEvents,
   issues,
+  issueComments,
+  issueLabels,
+  labels,
   projectWorkspaces,
 } from "@paperclipai/db";
 import { conflict, notFound } from "../errors.js";
@@ -27,6 +30,9 @@ import { resolveDefaultAgentWorkspaceDir } from "../home-paths.js";
 import { createUsageTracker } from "./claude-usage-streaming.js";
 import { estimatePromptBreakdown } from "./token-estimation.js";
 import { getContextWindowSize } from "@paperclipai/shared";
+import { runContextPipeline, defaultProcessors } from "../context-pipeline/index.js";
+import { resolveBudget } from "./budget.js";
+import type { PipelineContext } from "../context-pipeline/types.js";
 
 const activeRunExecutions = new Set<string>();
 
@@ -1096,6 +1102,37 @@ export function heartbeatService(db: Db) {
     const taskKey = deriveTaskKey(context, null);
     const sessionCodec = getAdapterSessionCodec(agent.adapterType);
     const issueId = readNonEmptyString(context.issueId);
+
+    // Fetch issue labels for task-type resolution
+    const issueLabelNames: string[] = [];
+    if (issueId) {
+      const labelRows = await db
+        .select({ name: labels.name })
+        .from(issueLabels)
+        .innerJoin(labels, eq(issueLabels.labelId, labels.id))
+        .where(and(eq(issueLabels.issueId, issueId), eq(issueLabels.companyId, agent.companyId)));
+      issueLabelNames.push(...labelRows.map(r => r.name));
+    }
+
+    // Fetch issue data for context pipeline
+    let issueForPipeline: PipelineContext["issue"] = null;
+    if (issueId) {
+      const issueRow = await db
+        .select({ title: issues.title, description: issues.description })
+        .from(issues)
+        .where(eq(issues.id, issueId))
+        .then(rows => rows[0] ?? null);
+      if (issueRow) {
+        const commentRows = await db
+          .select({ id: issueComments.id, body: issueComments.body, createdAt: issueComments.createdAt })
+          .from(issueComments)
+          .where(eq(issueComments.issueId, issueId))
+          .orderBy(asc(issueComments.createdAt))
+          .then(rows => rows.map(r => ({ id: r.id, body: r.body ?? "", createdAt: r.createdAt?.toISOString() ?? "" })));
+        issueForPipeline = { title: issueRow.title, description: issueRow.description, comments: commentRows };
+      }
+    }
+
     const issueAssigneeConfig = issueId
       ? await db
           .select({
@@ -1232,22 +1269,16 @@ export function heartbeatService(db: Db) {
         .where(eq(heartbeatRuns.id, runId));
 
       const isClaudeAdapter = agent.adapterType === "claude_local";
-      const usageTracker = isClaudeAdapter
-        ? createUsageTracker({
-            emitIntervalMs: 2000,
-            onEmit: (usage) => {
-              publishLiveEvent({
-                companyId: run.companyId,
-                type: "heartbeat.run.usage",
-                payload: {
-                  runId: run.id,
-                  agentId: run.agentId,
-                  ...usage,
-                },
-              });
-            },
-          })
-        : null;
+
+      // Resolve budget from three-tier hierarchy
+      const budget = resolveBudget({
+        runOverride: asNumber(context.tokenBudget, 0) || null,
+        agentDefault: asNumber(agent.runtimeConfig?.tokenBudget, 0) || null,
+        projectDefault: null, // Project budget not yet in schema
+      });
+
+      // Declare tracker as let so onLog and usageTracker can cross-reference
+      let usageTracker: ReturnType<typeof createUsageTracker> | null = null;
 
       const onLog = async (stream: "stdout" | "stderr", chunk: string) => {
         if (stream === "stdout") stdoutExcerpt = appendExcerpt(stdoutExcerpt, chunk);
@@ -1282,6 +1313,36 @@ export function heartbeatService(db: Db) {
           usageTracker.processChunk(chunk);
         }
       };
+
+      usageTracker = isClaudeAdapter
+        ? createUsageTracker({
+            emitIntervalMs: 2000,
+            budget: budget.maxTokens ? { maxTokens: budget.maxTokens, windDownThreshold: budget.windDownThreshold } : null,
+            onEmit: (usage) => {
+              publishLiveEvent({
+                companyId: run.companyId,
+                type: "heartbeat.run.usage",
+                payload: {
+                  runId: run.id,
+                  agentId: run.agentId,
+                  ...usage,
+                  budgetMaxTokens: budget.maxTokens,
+                  budgetSource: budget.source,
+                },
+              });
+            },
+            onBudgetWarning: (usage, budgetInfo) => {
+              logger.warn({
+                runId: run.id,
+                agentId: agent.id,
+                usage,
+                budget: budgetInfo,
+              }, "Token budget wind-down threshold reached");
+              // Inject wind-down message into the agent's log stream
+              onLog("stderr", `[paperclip] WARNING: Token budget ${budgetInfo.windDownThreshold * 100}% threshold reached (${usage.inputTokens + usage.outputTokens} / ${budgetInfo.maxTokens} tokens). Please wrap up current work and commit.\n`);
+            },
+          })
+        : null;
       for (const warning of runtimeWorkspaceWarnings) {
         await onLog("stderr", `[paperclip] ${warning}\n`);
       }
@@ -1404,10 +1465,41 @@ export function heartbeatService(db: Db) {
       }
       const promptTemplate = asString(resolvedConfig.promptTemplate, "");
       const sessionResuming = !!runtimeForAdapter.sessionId;
+
+      // Determine triggering comment ID from context
+      const triggeringCommentId = readNonEmptyString(context.wakeCommentId) ?? null;
+
+      // Run context optimization pipeline
+      const pipelineInput: PipelineContext = {
+        agent: {
+          id: agent.id,
+          companyId: agent.companyId,
+          name: agent.name,
+          adapterType: agent.adapterType,
+          adapterConfig: parseObject(agent.adapterConfig),
+          runtimeConfig: parseObject(agent.runtimeConfig),
+        },
+        config: resolvedConfig,
+        context: { ...context },
+        taskType: null,
+        budget,
+        promptTemplate,
+        instructionsContent,
+        issueLabels: issueLabelNames,
+        issue: issueForPipeline,
+        triggeringCommentId,
+        structuredBrief: null,
+        metrics: { originalTokenEstimate: 0, compressedTokenEstimate: 0, compressionRatio: 1 },
+      };
+
+      const pipelineResult = runContextPipeline(pipelineInput, defaultProcessors);
+      // Use pipeline-optimized context for adapter invocation
+      const optimizedContext = pipelineResult.context;
+
       const breakdown = estimatePromptBreakdown({
         promptTemplate,
         instructionsContent,
-        contextSnapshot: context,
+        contextSnapshot: optimizedContext,
         sessionResuming,
       });
 
@@ -1418,7 +1510,7 @@ export function heartbeatService(db: Db) {
           agent,
           runtime: runtimeForAdapter,
           config: resolvedConfig,
-          context,
+          context: optimizedContext,
           onLog,
           onMeta: onAdapterMeta,
           authToken: authToken ?? undefined,
@@ -1484,6 +1576,15 @@ export function heartbeatService(db: Db) {
               ...(adapterResult.billingType ? { billingType: adapterResult.billingType } : {}),
               breakdown,
               contextWindowSize,
+              compressionRatio: pipelineResult.metrics.compressionRatio,
+              taskType: pipelineResult.taskType,
+              budgetInfo: budget.maxTokens ? {
+                maxTokens: budget.maxTokens,
+                source: budget.source,
+                usedTokens: usageTracker ? (usageTracker.getCurrent().inputTokens + usageTracker.getCurrent().outputTokens) : 0,
+                windDownThreshold: budget.windDownThreshold,
+                windDownTriggered: usageTracker?.isWindDownTriggered() ?? false,
+              } : null,
             } as Record<string, unknown>)
           : null;
 
