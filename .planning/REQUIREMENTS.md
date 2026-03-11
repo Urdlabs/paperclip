@@ -16,11 +16,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Token Optimization
 
-- [ ] **TOPT-01**: Data serialization optimization compacts issue context, file summaries, and conversation history before sending to agents (targeting 40-70% reduction in formatting waste)
+- [x] **TOPT-01**: Data serialization optimization compacts issue context, file summaries, and conversation history before sending to agents (targeting 40-70% reduction in formatting waste)
 - [x] **TOPT-02**: Per-run token budget cap with graceful early termination when budget is reached
-- [ ] **TOPT-03**: Smart prompt templates per task type (bug fix, feature, review, etc.) that include only relevant context for that task
-- [ ] **TOPT-04**: Context compression pipeline with deduplication, rolling summaries, and history compaction (targeting 40-60% token reduction)
-- [ ] **TOPT-05**: Prompt caching awareness — structure prompts to maximize Anthropic prompt cache hits (90% savings on cached input)
+- [x] **TOPT-03**: Smart prompt templates per task type (bug fix, feature, review, etc.) that include only relevant context for that task
+- [x] **TOPT-04**: Context compression pipeline with deduplication, rolling summaries, and history compaction (targeting 40-60% token reduction)
+- [x] **TOPT-05**: Prompt caching awareness — structure prompts to maximize Anthropic prompt cache hits (90% savings on cached input)
 
 ### Notifications
 
@@ -89,11 +89,11 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | TOKN-02 | Phase 1 | Complete |
 | TOKN-03 | Phase 1 | Complete |
 | TOKN-04 | Phase 1 | Complete |
-| TOPT-01 | Phase 2 | Pending |
+| TOPT-01 | Phase 2 | Complete |
 | TOPT-02 | Phase 2 | Complete |
-| TOPT-03 | Phase 2 | Pending |
-| TOPT-04 | Phase 2 | Pending |
-| TOPT-05 | Phase 2 | Pending |
+| TOPT-03 | Phase 2 | Complete |
+| TOPT-04 | Phase 2 | Complete |
+| TOPT-05 | Phase 2 | Complete |
 | NOTF-01 | Phase 4 | Pending |
 | NOTF-02 | Phase 4 | Pending |
 | NOTF-03 | Phase 4 | Pending |
