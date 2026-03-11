@@ -45,11 +45,12 @@ Plans:
   3. Different task types (bug fix, feature, review) use tailored prompt templates that include only context relevant to that task
   4. Conversation history is compressed through deduplication and rolling summaries, with measurable reduction in analytics (targeting 40-60% token reduction)
   5. Prompts are structured to maximize Anthropic prompt cache hits, and cache hit rates are visible in analytics
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Context pipeline core: shared types, pipeline runner, 4 processors (task-type resolver, context serializer, deduplicator, prompt reorderer)
+- [ ] 02-02-PLAN.md -- Token budget resolution service (three-tier hierarchy) and usage tracker budget warning extension
+- [ ] 02-03-PLAN.md -- Heartbeat integration, adapter compaction env var, budget bar UI, compression metrics display
 
 ### Phase 3: Observability & Monitoring UX
 **Goal**: Operators can deeply inspect agent execution and understand system behavior through traces, filtered feeds, and rich analytics charts
@@ -89,6 +90,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Token Analytics Foundation | 3/3 | Complete | 2026-03-10 |
-| 2. Context Optimization Pipeline | 0/0 | Not started | - |
+| 2. Context Optimization Pipeline | 0/3 | Planning complete | - |
 | 3. Observability & Monitoring UX | 0/0 | Not started | - |
 | 4. Notifications & Agent Capabilities | 0/0 | Not started | - |
