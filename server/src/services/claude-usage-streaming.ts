@@ -78,12 +78,18 @@ export function parseClaudeUsageFromChunk(chunk: string): ParsedUsage[] {
 interface UsageTrackerOptions {
   emitIntervalMs?: number; // default 2000
   onEmit: (usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number }) => void;
+  budget?: { maxTokens: number | null; windDownThreshold: number } | null;
+  onBudgetWarning?: (
+    usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number },
+    budget: { maxTokens: number; windDownThreshold: number },
+  ) => void;
 }
 
 interface UsageTracker {
   processChunk: (chunk: string) => void;
   flush: () => void;
   getCurrent: () => { inputTokens: number; outputTokens: number; cachedInputTokens: number };
+  isWindDownTriggered: () => boolean;
 }
 
 /**
@@ -103,6 +109,7 @@ export function createUsageTracker(opts: UsageTrackerOptions): UsageTracker {
   let cachedInputTokens = 0;
   let lastEmitTime = 0;
   let hasEmitted = false;
+  let windDownTriggered = false;
 
   function getCurrent() {
     return { inputTokens, outputTokens, cachedInputTokens };
@@ -119,6 +126,21 @@ export function createUsageTracker(opts: UsageTrackerOptions): UsageTracker {
     lastEmitTime = Date.now();
     hasEmitted = true;
     onEmit(getCurrent());
+  }
+
+  function checkBudgetWarning() {
+    if (windDownTriggered) return;
+    if (!opts.budget?.maxTokens) return;
+
+    const totalUsed = inputTokens + outputTokens;
+    const threshold = opts.budget.maxTokens * (opts.budget.windDownThreshold ?? 0.9);
+    if (totalUsed >= threshold) {
+      windDownTriggered = true;
+      opts.onBudgetWarning?.(getCurrent(), {
+        maxTokens: opts.budget.maxTokens,
+        windDownThreshold: opts.budget.windDownThreshold ?? 0.9,
+      });
+    }
   }
 
   function processChunk(chunk: string) {
@@ -138,8 +160,11 @@ export function createUsageTracker(opts: UsageTrackerOptions): UsageTracker {
         changed = true;
       }
     }
-    if (changed && shouldEmit()) {
-      emit();
+    if (changed) {
+      checkBudgetWarning();
+      if (shouldEmit()) {
+        emit();
+      }
     }
   }
 
@@ -147,5 +172,9 @@ export function createUsageTracker(opts: UsageTrackerOptions): UsageTracker {
     emit();
   }
 
-  return { processChunk, flush, getCurrent };
+  function isWindDownTriggered() {
+    return windDownTriggered;
+  }
+
+  return { processChunk, flush, getCurrent, isWindDownTriggered };
 }
