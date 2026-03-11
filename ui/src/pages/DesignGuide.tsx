@@ -124,6 +124,7 @@ import { InlineEditor } from "@/components/InlineEditor";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Identity } from "@/components/Identity";
 import { ContextUtilizationBar } from "@/components/ContextUtilizationBar";
+import { BudgetBar } from "@/components/BudgetBar";
 import { TokenBreakdown } from "@/components/TokenBreakdown";
 
 /* ------------------------------------------------------------------ */
@@ -1065,6 +1066,27 @@ export function DesignGuide() {
             <ContextUtilizationBar usedTokens={0} contextWindowSize={200000} />
             <ContextUtilizationBar usedTokens={200000} contextWindowSize={200000} />
           </div>
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  BUDGET BAR                                                   */}
+      {/* ============================================================ */}
+      <Section title="Budget Bar">
+        <SubSection title="No Budget (null)">
+          <BudgetBar usedTokens={45000} budgetTokens={null} />
+        </SubSection>
+        <SubSection title="Low Usage (30% - green)">
+          <BudgetBar usedTokens={30000} budgetTokens={100000} />
+        </SubSection>
+        <SubSection title="Medium Usage (82% - yellow)">
+          <BudgetBar usedTokens={82000} budgetTokens={100000} />
+        </SubSection>
+        <SubSection title="High Usage (96% - red)">
+          <BudgetBar usedTokens={96000} budgetTokens={100000} />
+        </SubSection>
+        <SubSection title="At Limit (100% - full red)">
+          <BudgetBar usedTokens={100000} budgetTokens={100000} />
         </SubSection>
       </Section>
 

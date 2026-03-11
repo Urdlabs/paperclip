@@ -482,6 +482,8 @@ function handleLiveEvent(
           inputTokens: readNumber(payload.inputTokens),
           outputTokens: readNumber(payload.outputTokens),
           cachedInputTokens: readNumber(payload.cachedInputTokens),
+          budgetMaxTokens: typeof payload.budgetMaxTokens === "number" ? payload.budgetMaxTokens : null,
+          budgetSource: readString(payload.budgetSource),
         },
       );
     }

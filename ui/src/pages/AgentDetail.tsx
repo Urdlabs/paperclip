@@ -60,6 +60,7 @@ import { isUuidLike, type Agent, type HeartbeatRun, type HeartbeatRunEvent, type
 import type { TokenBreakdown as TokenBreakdownData, UsageJsonExtended } from "@paperclipai/shared";
 import { TokenBreakdown } from "../components/TokenBreakdown";
 import { ContextUtilizationBar } from "../components/ContextUtilizationBar";
+import { BudgetBar } from "../components/BudgetBar";
 import { agentRouteRef } from "../lib/utils";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
@@ -1382,6 +1383,8 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
     inputTokens: number;
     outputTokens: number;
     cachedInputTokens: number;
+    budgetMaxTokens?: number | null;
+    budgetSource?: string | null;
   }>(queryKeys.liveUsage(run.id));
 
   useEffect(() => {
@@ -1738,21 +1741,47 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
 
       {/* Live token counter for active runs */}
       {isRunActive && liveUsageData && (
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span>Tokens: {formatTokens(liveUsageData.inputTokens + liveUsageData.outputTokens)}</span>
-        </div>
+        liveUsageData.budgetMaxTokens != null ? (
+          <div className="flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+            <BudgetBar
+              usedTokens={liveUsageData.inputTokens + liveUsageData.outputTokens}
+              budgetTokens={liveUsageData.budgetMaxTokens}
+              className="flex-1"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span>Tokens: {formatTokens(liveUsageData.inputTokens + liveUsageData.outputTokens)}</span>
+          </div>
+        )
       )}
 
       {/* Token Analysis Section */}
       {(breakdown || contextWindowSize) && (
         <div className="border border-border rounded-lg p-4 space-y-4">
-          <h3 className="text-sm font-semibold">Token Analysis</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold">Token Analysis</h3>
+            {usageData?.taskType && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{String(usageData.taskType)}</span>
+            )}
+            {typeof usageData?.compressionRatio === "number" && usageData.compressionRatio > 1 && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Compressed: {usageData.compressionRatio.toFixed(1)}x</span>
+            )}
+          </div>
 
           {contextWindowSize != null && contextWindowSize > 0 && (
             <ContextUtilizationBar
               usedTokens={metrics.input + metrics.output}
               contextWindowSize={contextWindowSize}
+            />
+          )}
+
+          {usageData?.budgetInfo && usageData.budgetInfo.maxTokens != null && (
+            <BudgetBar
+              usedTokens={usageData.budgetInfo.usedTokens}
+              budgetTokens={usageData.budgetInfo.maxTokens}
             />
           )}
 

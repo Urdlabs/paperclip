@@ -189,6 +189,19 @@ export function Costs() {
                 <p className="text-2xl font-bold">{formatTokens(data.summary.avgTokensPerRun)}</p>
               </CardContent>
             </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Compression Ratio</p>
+                <p className="text-2xl font-bold">
+                  {(() => {
+                    const s = data.summary as unknown as Record<string, unknown>;
+                    const ratio = typeof s.avgCompressionRatio === "number" ? s.avgCompressionRatio : 0;
+                    return ratio > 1 ? `${ratio.toFixed(1)}x` : "--";
+                  })()}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Context optimization</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* By Agent / By Project */}
@@ -219,7 +232,7 @@ export function Costs() {
                           <span className="text-xs text-muted-foreground block">
                             in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
                           </span>
-                          <span className="text-xs font-mono text-muted-foreground block">
+                          <span className="text-xs font-mono text-muted-foreground block" title="Cache reads cost 10% of input price">
                             cached {formatTokens(row.cachedInputTokens)} ({((row.cachedInputTokens / Math.max(1, row.inputTokens)) * 100).toFixed(1)}% eff)
                           </span>
                           {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (

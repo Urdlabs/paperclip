@@ -23,4 +23,6 @@ export interface UsageJsonExtended {
   breakdown?: TokenBreakdown | null;
   contextWindowSize?: number | null;
   budgetInfo?: BudgetInfo | null;
+  compressionRatio?: number | null;
+  taskType?: string | null;
 }
