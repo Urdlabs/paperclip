@@ -1766,8 +1766,8 @@ function RunDetail({ run, agentRouteId, adapterType }: { run: HeartbeatRun; agen
             {usageData?.taskType && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{String(usageData.taskType)}</span>
             )}
-            {typeof usageData?.compressionRatio === "number" && usageData.compressionRatio > 1 && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Compressed: {usageData.compressionRatio.toFixed(1)}x</span>
+            {typeof usageData?.compressionRatio === "number" && usageData.compressionRatio > 0 && usageData.compressionRatio < 1 && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Compressed: {(1 / usageData.compressionRatio).toFixed(1)}x</span>
             )}
           </div>
 

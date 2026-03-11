@@ -196,7 +196,7 @@ export function Costs() {
                   {(() => {
                     const s = data.summary as unknown as Record<string, unknown>;
                     const ratio = typeof s.avgCompressionRatio === "number" ? s.avgCompressionRatio : 0;
-                    return ratio > 1 ? `${ratio.toFixed(1)}x` : "--";
+                    return ratio > 0 && ratio < 1 ? `${(1 / ratio).toFixed(1)}x` : "--";
                   })()}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">Context optimization</p>
