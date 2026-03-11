@@ -34,7 +34,7 @@ export type {
   SecretProviderDescriptor,
 } from "./secrets.js";
 export type { CostEvent, CostSummary, CostByAgent } from "./cost.js";
-export type { TokenBreakdown, UsageJsonExtended } from "./usage.js";
+export type { TokenBreakdown, UsageJsonExtended, BudgetInfo } from "./usage.js";
 export type {
   HeartbeatRun,
   HeartbeatRunEvent,
@@ -72,3 +72,5 @@ export type {
   CompanyPortabilityImportResult,
   CompanyPortabilityExportRequest,
 } from "./company-portability.js";
+export type { TaskType, TaskTypeTemplateConfig, LabelMapping } from "./task-types.js";
+export { TASK_TYPES } from "./task-types.js";
