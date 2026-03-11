@@ -203,3 +203,147 @@ describe("createUsageTracker", () => {
     expect(onEmit).toHaveBeenCalledTimes(2); // now emitted
   });
 });
+
+describe("createUsageTracker budget warning", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("fires onBudgetWarning when cumulative usage crosses 90% threshold", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: { maxTokens: 10000, windDownThreshold: 0.9 },
+      onBudgetWarning,
+    });
+
+    // 5000 input + 4000 output = 9000, which is exactly 90% of 10000
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 5000 } } }));
+    expect(onBudgetWarning).not.toHaveBeenCalled();
+
+    tracker.processChunk(JSON.stringify({ usage: { output_tokens: 4000 } }));
+    expect(onBudgetWarning).toHaveBeenCalledTimes(1);
+    expect(onBudgetWarning).toHaveBeenCalledWith(
+      { inputTokens: 5000, outputTokens: 4000, cachedInputTokens: 0 },
+      { maxTokens: 10000, windDownThreshold: 0.9 },
+    );
+  });
+
+  it("fires onBudgetWarning exactly once even with multiple chunks above threshold", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: { maxTokens: 10000, windDownThreshold: 0.9 },
+      onBudgetWarning,
+    });
+
+    // First chunk crosses threshold: 9500 >= 9000
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 9500 } } }));
+    expect(onBudgetWarning).toHaveBeenCalledTimes(1);
+
+    // Second chunk still above threshold but should NOT fire again
+    tracker.processChunk(JSON.stringify({ usage: { output_tokens: 1000 } }));
+    expect(onBudgetWarning).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onBudgetWarning when budget is null", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: null,
+      onBudgetWarning,
+    });
+
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 999999 } } }));
+    expect(onBudgetWarning).not.toHaveBeenCalled();
+  });
+
+  it("does not call onBudgetWarning when budget.maxTokens is null", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: { maxTokens: null, windDownThreshold: 0.9 },
+      onBudgetWarning,
+    });
+
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 999999 } } }));
+    expect(onBudgetWarning).not.toHaveBeenCalled();
+  });
+
+  it("does not call onBudgetWarning when usage is below threshold", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: { maxTokens: 10000, windDownThreshold: 0.9 },
+      onBudgetWarning,
+    });
+
+    // 4000 input + 4999 output = 8999, below 9000 threshold
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 4000 } } }));
+    tracker.processChunk(JSON.stringify({ usage: { output_tokens: 4999 } }));
+    expect(onBudgetWarning).not.toHaveBeenCalled();
+  });
+
+  it("isWindDownTriggered returns true after warning fires", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: { maxTokens: 10000, windDownThreshold: 0.9 },
+      onBudgetWarning,
+    });
+
+    expect(tracker.isWindDownTriggered()).toBe(false);
+
+    // Cross threshold
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 9500 } } }));
+    expect(tracker.isWindDownTriggered()).toBe(true);
+  });
+
+  it("uses inputTokens + outputTokens as total for budget check", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      budget: { maxTokens: 10000, windDownThreshold: 0.9 },
+      onBudgetWarning,
+    });
+
+    // 4500 input alone does not trigger (below 9000)
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 4500 } } }));
+    expect(onBudgetWarning).not.toHaveBeenCalled();
+
+    // 4500 input + 4500 output = 9000, exactly at threshold
+    tracker.processChunk(JSON.stringify({ usage: { output_tokens: 4500 } }));
+    expect(onBudgetWarning).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onBudgetWarning when no budget option is provided", () => {
+    const onEmit = vi.fn();
+    const onBudgetWarning = vi.fn();
+    const tracker = createUsageTracker({
+      emitIntervalMs: 0,
+      onEmit,
+      onBudgetWarning,
+    });
+
+    tracker.processChunk(JSON.stringify({ message: { usage: { input_tokens: 999999 } } }));
+    expect(onBudgetWarning).not.toHaveBeenCalled();
+  });
+});
