@@ -81,4 +81,16 @@ export const queryKeys = {
     status: ["github", "status"] as const,
     installations: ["github", "installations"] as const,
   },
+  webhooks: {
+    list: (companyId: string) => ["webhooks", companyId] as const,
+    deliveries: (companyId: string, webhookId: string) =>
+      ["webhooks", companyId, "deliveries", webhookId] as const,
+  },
+  skillProfiles: {
+    list: (companyId: string) => ["skill-profiles", companyId] as const,
+  },
+  subtasks: {
+    list: (companyId: string, issueId: string) =>
+      ["subtasks", companyId, issueId] as const,
+  },
 };

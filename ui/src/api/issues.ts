@@ -73,4 +73,17 @@ export const issuesApi = {
     api.post<Approval[]>(`/issues/${id}/approvals`, { approvalId }),
   unlinkApproval: (id: string, approvalId: string) =>
     api.delete<{ ok: true }>(`/issues/${id}/approvals/${approvalId}`),
+
+  // Subtask & dependency endpoints
+  listSubtasks: (companyId: string, issueId: string) =>
+    api.get<Issue[]>(`/companies/${companyId}/issues/${issueId}/subtasks`),
+
+  createSubtask: (companyId: string, issueId: string, data: { title: string; description?: string; priority?: string }) =>
+    api.post<Issue>(`/companies/${companyId}/issues/${issueId}/subtasks`, data),
+
+  addDependency: (companyId: string, issueId: string, dependsOnId: string) =>
+    api.post<{ issueId: string; dependsOnId: string }>(`/companies/${companyId}/issues/${issueId}/dependencies`, { dependsOnId }),
+
+  removeDependency: (companyId: string, issueId: string, dependsOnId: string) =>
+    api.delete<{ ok: true }>(`/companies/${companyId}/issues/${issueId}/dependencies/${dependsOnId}`),
 };

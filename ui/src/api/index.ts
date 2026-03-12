@@ -14,3 +14,5 @@ export { dashboardApi } from "./dashboard";
 export { heartbeatsApi } from "./heartbeats";
 export { sidebarBadgesApi } from "./sidebarBadges";
 export { githubApi } from "./github";
+export { webhooksApi } from "./webhooks";
+export { skillProfilesApi } from "./skillProfiles";

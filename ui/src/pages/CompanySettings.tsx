@@ -7,7 +7,8 @@ import { accessApi } from "../api/access";
 import { githubApi } from "../api/github";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Settings, Check, Github, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
+import { Settings, Check, Github, ExternalLink, RefreshCw, Trash2, Webhook } from "lucide-react";
+import { WebhookEndpointList } from "../components/WebhookEndpointList";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -377,6 +378,19 @@ export function CompanySettings() {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Webhooks */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-1.5">
+          <Webhook className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Webhooks
+          </div>
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <WebhookEndpointList companyId={selectedCompanyId!} />
         </div>
       </div>
 
