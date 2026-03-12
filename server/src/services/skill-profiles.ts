@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
-import { skillProfiles } from "@paperclipai/db/schema";
 import type { Db } from "@paperclipai/db";
+import { skillProfiles } from "@paperclipai/db";
 import type { CreateSkillProfile, UpdateSkillProfile } from "@paperclipai/shared";
 
 /**

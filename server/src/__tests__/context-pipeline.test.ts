@@ -83,8 +83,8 @@ describe("runContextPipeline", () => {
 });
 
 describe("defaultProcessors", () => {
-  it("has 4 entries", () => {
-    expect(defaultProcessors).toHaveLength(4);
+  it("has 5 entries (including skill profile resolver)", () => {
+    expect(defaultProcessors).toHaveLength(5);
   });
 
   it("full pipeline integration: label 'bug' -> bug_fix -> structured brief with 4K limit -> dedup -> reorder", () => {

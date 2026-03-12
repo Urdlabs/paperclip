@@ -14,3 +14,4 @@ export { llmRoutes } from "./llms.js";
 export { accessRoutes } from "./access.js";
 export { githubRoutes, githubWebhookRoute } from "./github.js";
 export { webhookRoutes } from "./webhooks.js";
+export { skillProfileRoutes } from "./skill-profiles.js";

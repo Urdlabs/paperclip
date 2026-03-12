@@ -32,6 +32,7 @@ import { estimatePromptBreakdown } from "./token-estimation.js";
 import { getContextWindowSize } from "@paperclipai/shared";
 import { runContextPipeline, defaultProcessors } from "../context-pipeline/index.js";
 import { resolveBudget } from "./budget.js";
+import { skillProfileService } from "./skill-profiles.js";
 import type { PipelineContext } from "../context-pipeline/types.js";
 
 const activeRunExecutions = new Set<string>();
@@ -1469,6 +1470,27 @@ export function heartbeatService(db: Db) {
       // Determine triggering comment ID from context
       const triggeringCommentId = readNonEmptyString(context.wakeCommentId) ?? null;
 
+      // Resolve skill profile from agent runtimeConfig (if set)
+      const runtimeCfg = parseObject(agent.runtimeConfig);
+      const skillProfileId = asString(runtimeCfg.skillProfileId, "").trim() || null;
+      let resolvedSkillProfile: PipelineContext["skillProfile"] = null;
+      if (skillProfileId) {
+        try {
+          const profileSvc = skillProfileService(db);
+          const profile = await profileSvc.getById(skillProfileId);
+          if (profile) {
+            resolvedSkillProfile = {
+              name: profile.name,
+              systemPromptAdditions: profile.systemPromptAdditions,
+              toolPreferences: profile.toolPreferences ?? undefined,
+              outputFormatHints: profile.outputFormatHints ?? undefined,
+            };
+          }
+        } catch (err) {
+          logger.warn({ err, agentId: agent.id, runId: run.id, skillProfileId }, "Failed to resolve skill profile");
+        }
+      }
+
       // Run context optimization pipeline
       const pipelineInput: PipelineContext = {
         agent: {
@@ -1477,7 +1499,7 @@ export function heartbeatService(db: Db) {
           name: agent.name,
           adapterType: agent.adapterType,
           adapterConfig: parseObject(agent.adapterConfig),
-          runtimeConfig: parseObject(agent.runtimeConfig),
+          runtimeConfig: runtimeCfg,
         },
         config: resolvedConfig,
         context: { ...context },
@@ -1489,6 +1511,7 @@ export function heartbeatService(db: Db) {
         issue: issueForPipeline,
         triggeringCommentId,
         structuredBrief: null,
+        skillProfile: resolvedSkillProfile,
         metrics: { originalTokenEstimate: 0, compressedTokenEstimate: 0, compressionRatio: 1 },
       };
 
