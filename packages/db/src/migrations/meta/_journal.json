@@ -218,6 +218,20 @@
       "when": 1773289246222,
       "tag": "0030_sharp_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773089625430,
+      "tag": "0031_lying_pete_wisdom",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1773150731736,
+      "tag": "0032_tranquil_tenebrous",
+      "breakpoints": true
     }
   ]
 }
