@@ -21,8 +21,23 @@ export interface IssueForRun {
   priority: string;
 }
 
+export interface ActivityListFilters {
+  agentId?: string;
+  projectId?: string;
+  entityType?: string;
+  severity?: string;
+}
+
 export const activityApi = {
-  list: (companyId: string) => api.get<ActivityEvent[]>(`/companies/${companyId}/activity`),
+  list: (companyId: string, filters?: ActivityListFilters) => {
+    const params = new URLSearchParams();
+    if (filters?.agentId) params.set("agentId", filters.agentId);
+    if (filters?.projectId) params.set("projectId", filters.projectId);
+    if (filters?.entityType) params.set("entityType", filters.entityType);
+    if (filters?.severity) params.set("severity", filters.severity);
+    const qs = params.toString();
+    return api.get<ActivityEvent[]>(`/companies/${companyId}/activity${qs ? `?${qs}` : ""}`);
+  },
   forIssue: (issueId: string) => api.get<ActivityEvent[]>(`/issues/${issueId}/activity`),
   runsForIssue: (issueId: string) => api.get<RunForIssue[]>(`/issues/${issueId}/runs`),
   issuesForRun: (runId: string) => api.get<IssueForRun[]>(`/heartbeat-runs/${runId}/issues`),

@@ -7,6 +7,8 @@ export interface ActivityFilters {
   agentId?: string;
   entityType?: string;
   entityId?: string;
+  projectId?: string;
+  severity?: string;
 }
 
 export function activityService(db: Db) {
@@ -23,6 +25,22 @@ export function activityService(db: Db) {
       }
       if (filters.entityId) {
         conditions.push(eq(activityLog.entityId, filters.entityId));
+      }
+      if (filters.projectId) {
+        conditions.push(eq(issues.projectId, filters.projectId));
+        // When filtering by project, we only want issue-related activity
+        conditions.push(eq(activityLog.entityType, sql`'issue'`));
+      }
+      if (filters.severity) {
+        const errorCond = sql`(${activityLog.action} ILIKE '%failed%' OR ${activityLog.action} ILIKE '%error%')`;
+        const warningCond = sql`(${activityLog.action} ILIKE '%budget%' OR ${activityLog.action} ILIKE '%retry%' OR ${activityLog.action} ILIKE '%slow%')`;
+        if (filters.severity === "error") {
+          conditions.push(errorCond);
+        } else if (filters.severity === "warning") {
+          conditions.push(warningCond);
+        } else if (filters.severity === "info") {
+          conditions.push(sql`NOT ${errorCond} AND NOT ${warningCond}`);
+        }
       }
 
       return db
@@ -45,6 +63,7 @@ export function activityService(db: Db) {
           ),
         )
         .orderBy(desc(activityLog.createdAt))
+        .limit(200)
         .then((rows) => rows.map((r) => r.activityLog));
     },
 
