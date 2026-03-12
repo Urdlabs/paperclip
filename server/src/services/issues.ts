@@ -10,6 +10,7 @@ import {
   issueAttachments,
   issueLabels,
   issueComments,
+  issueDependencies,
   issueReadStates,
   issues,
   labels,
@@ -17,7 +18,9 @@ import {
   projects,
 } from "@paperclipai/db";
 import { extractProjectMentionIds } from "@paperclipai/shared";
+import type { DerivedParentStatus, SubtaskWithDependencies } from "@paperclipai/shared";
 import { conflict, notFound, unprocessable } from "../errors.js";
+import { topologicalSort, validateNoCycle, getExecutionWaves } from "./dependency-graph.js";
 
 const ALL_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 
@@ -1403,6 +1406,263 @@ export function issueService(db: Db) {
         .then((rows) => rows[0]);
 
       return Number(result?.count ?? 0);
+    },
+
+    // ── Subtask & Dependency Methods ──────────────────────────────────────
+
+    createSubtask: async (
+      companyId: string,
+      parentIssueId: string,
+      data: { title: string; description?: string | null; assigneeAgentId?: string | null; priority?: string },
+    ) => {
+      const parent = await db
+        .select({ id: issues.id, companyId: issues.companyId })
+        .from(issues)
+        .where(eq(issues.id, parentIssueId))
+        .then((rows) => rows[0] ?? null);
+      if (!parent) throw notFound("Parent issue not found");
+      if (parent.companyId !== companyId) throw unprocessable("Parent issue does not belong to company");
+
+      // Delegate to the existing create method, setting parentId
+      return db.transaction(async (tx) => {
+        const [company] = await tx
+          .update(companies)
+          .set({ issueCounter: sql`${companies.issueCounter} + 1` })
+          .where(eq(companies.id, companyId))
+          .returning({ issueCounter: companies.issueCounter, issuePrefix: companies.issuePrefix });
+
+        const issueNumber = company.issueCounter;
+        const identifier = `${company.issuePrefix}-${issueNumber}`;
+
+        const values: typeof issues.$inferInsert = {
+          companyId,
+          parentId: parentIssueId,
+          title: data.title,
+          description: data.description ?? null,
+          assigneeAgentId: data.assigneeAgentId ?? null,
+          priority: data.priority ?? "medium",
+          status: "backlog",
+          issueNumber,
+          identifier,
+        };
+
+        const [issue] = await tx.insert(issues).values(values).returning();
+        const [enriched] = await withIssueLabels(tx, [issue]);
+        return enriched;
+      });
+    },
+
+    listSubtasks: async (companyId: string, parentIssueId: string): Promise<SubtaskWithDependencies[]> => {
+      // Fetch subtasks
+      const subtasks = await db
+        .select()
+        .from(issues)
+        .where(and(eq(issues.companyId, companyId), eq(issues.parentId, parentIssueId)));
+
+      if (subtasks.length === 0) return [];
+
+      const subtaskIds = subtasks.map((s) => s.id);
+
+      // Fetch dependency edges for these subtasks
+      const edges = await db
+        .select({
+          issueId: issueDependencies.issueId,
+          dependsOnId: issueDependencies.dependsOnId,
+        })
+        .from(issueDependencies)
+        .where(inArray(issueDependencies.issueId, subtaskIds));
+
+      // Build dependsOn and dependedOnBy maps
+      const dependsOnMap = new Map<string, string[]>();
+      const dependedOnByMap = new Map<string, string[]>();
+      for (const edge of edges) {
+        const deps = dependsOnMap.get(edge.issueId) ?? [];
+        deps.push(edge.dependsOnId);
+        dependsOnMap.set(edge.issueId, deps);
+
+        const revDeps = dependedOnByMap.get(edge.dependsOnId) ?? [];
+        revDeps.push(edge.issueId);
+        dependedOnByMap.set(edge.dependsOnId, revDeps);
+      }
+
+      // Sort by topological order
+      const sortedIds = topologicalSort(subtaskIds, edges);
+      const subtaskMap = new Map(subtasks.map((s) => [s.id, s]));
+
+      const enriched = await withIssueLabels(db, subtasks);
+      const enrichedMap = new Map(enriched.map((s) => [s.id, s]));
+
+      return sortedIds.map((id) => {
+        const subtask = enrichedMap.get(id) ?? subtaskMap.get(id)!;
+        return {
+          ...subtask,
+          dependsOn: dependsOnMap.get(id) ?? [],
+          dependedOnBy: dependedOnByMap.get(id) ?? [],
+        } as SubtaskWithDependencies;
+      });
+    },
+
+    addDependency: async (companyId: string, issueId: string, dependsOnId: string) => {
+      if (issueId === dependsOnId) throw unprocessable("An issue cannot depend on itself");
+
+      // Validate both issues exist, share same parent, and belong to company
+      const [issue, dependsOn] = await Promise.all([
+        db.select({ id: issues.id, companyId: issues.companyId, parentId: issues.parentId })
+          .from(issues).where(eq(issues.id, issueId)).then((r) => r[0] ?? null),
+        db.select({ id: issues.id, companyId: issues.companyId, parentId: issues.parentId })
+          .from(issues).where(eq(issues.id, dependsOnId)).then((r) => r[0] ?? null),
+      ]);
+
+      if (!issue) throw notFound("Issue not found");
+      if (!dependsOn) throw notFound("Dependency target issue not found");
+      if (issue.companyId !== companyId) throw unprocessable("Issue does not belong to company");
+      if (dependsOn.companyId !== companyId) throw unprocessable("Dependency target does not belong to company");
+      if (issue.parentId !== dependsOn.parentId) throw unprocessable("Both issues must share the same parent");
+
+      return db.transaction(async (tx) => {
+        // Get all current edges for the parent to validate no cycle
+        const parentId = issue.parentId;
+        const siblings = parentId
+          ? await tx.select({ id: issues.id }).from(issues)
+              .where(and(eq(issues.companyId, companyId), eq(issues.parentId, parentId)))
+          : [{ id: issueId }, { id: dependsOnId }];
+
+        const siblingIds = siblings.map((s) => s.id);
+
+        const currentEdges = await tx
+          .select({ issueId: issueDependencies.issueId, dependsOnId: issueDependencies.dependsOnId })
+          .from(issueDependencies)
+          .where(inArray(issueDependencies.issueId, siblingIds));
+
+        // Add the new edge and validate
+        const allEdges = [...currentEdges, { issueId, dependsOnId }];
+        if (!validateNoCycle(siblingIds, allEdges)) {
+          throw unprocessable("Adding this dependency would create a cycle");
+        }
+
+        // Insert the edge
+        const [edge] = await tx
+          .insert(issueDependencies)
+          .values({ issueId, dependsOnId, companyId })
+          .returning();
+
+        return edge;
+      });
+    },
+
+    removeDependency: async (companyId: string, issueId: string, dependsOnId: string) => {
+      const deleted = await db
+        .delete(issueDependencies)
+        .where(
+          and(
+            eq(issueDependencies.issueId, issueId),
+            eq(issueDependencies.dependsOnId, dependsOnId),
+            eq(issueDependencies.companyId, companyId),
+          ),
+        )
+        .returning()
+        .then((rows) => rows[0] ?? null);
+
+      if (!deleted) throw notFound("Dependency not found");
+      return deleted;
+    },
+
+    deriveParentStatus: async (companyId: string, parentIssueId: string): Promise<DerivedParentStatus> => {
+      const subtasks = await db
+        .select({ id: issues.id, status: issues.status })
+        .from(issues)
+        .where(and(eq(issues.companyId, companyId), eq(issues.parentId, parentIssueId)));
+
+      if (subtasks.length === 0) return "ready";
+
+      const statuses = subtasks.map((s) => s.status);
+
+      // All done or cancelled -> done
+      if (statuses.every((s) => s === "done" || s === "cancelled")) return "done";
+
+      // Check for unmet dependencies
+      const subtaskIds = subtasks.map((s) => s.id);
+      const edges = await db
+        .select({ issueId: issueDependencies.issueId, dependsOnId: issueDependencies.dependsOnId })
+        .from(issueDependencies)
+        .where(inArray(issueDependencies.issueId, subtaskIds));
+
+      const statusMap = new Map(subtasks.map((s) => [s.id, s.status]));
+      const hasUnmetDeps = edges.some((edge) => {
+        const depStatus = statusMap.get(edge.dependsOnId);
+        return depStatus !== "done" && depStatus !== "cancelled";
+      });
+
+      // Any blocked or has unmet dependencies -> blocked
+      if (statuses.some((s) => s === "blocked") || hasUnmetDeps) return "blocked";
+
+      // Any in_progress -> in_progress
+      if (statuses.some((s) => s === "in_progress" || s === "in_review")) return "in_progress";
+
+      return "ready";
+    },
+
+    updateSubtaskStatus: async (companyId: string, issueId: string, status: string) => {
+      const issue = await db
+        .select({ id: issues.id, companyId: issues.companyId, parentId: issues.parentId, status: issues.status })
+        .from(issues)
+        .where(eq(issues.id, issueId))
+        .then((r) => r[0] ?? null);
+
+      if (!issue) throw notFound("Issue not found");
+      if (issue.companyId !== companyId) throw unprocessable("Issue does not belong to company");
+
+      assertTransition(issue.status, status);
+      const patch: Partial<typeof issues.$inferInsert> = { status, updatedAt: new Date() };
+      applyStatusSideEffects(status, patch);
+
+      const [updated] = await db
+        .update(issues)
+        .set(patch)
+        .where(eq(issues.id, issueId))
+        .returning();
+
+      // Re-derive parent status if this is a subtask
+      if (issue.parentId) {
+        const svc = issueService(db);
+        const derivedStatus = await svc.deriveParentStatus(companyId, issue.parentId);
+        const parent = await db
+          .select({ status: issues.status })
+          .from(issues)
+          .where(eq(issues.id, issue.parentId))
+          .then((r) => r[0] ?? null);
+
+        if (parent && parent.status !== derivedStatus) {
+          await db
+            .update(issues)
+            .set({ status: derivedStatus, updatedAt: new Date() })
+            .where(eq(issues.id, issue.parentId));
+        }
+      }
+
+      const [enriched] = await withIssueLabels(db, [updated]);
+      return enriched;
+    },
+
+    getExecutionWaves: async (companyId: string, parentIssueId: string) => {
+      const subtasks = await db
+        .select()
+        .from(issues)
+        .where(and(eq(issues.companyId, companyId), eq(issues.parentId, parentIssueId)));
+
+      if (subtasks.length === 0) return [];
+
+      const subtaskIds = subtasks.map((s) => s.id);
+      const edges = await db
+        .select({ issueId: issueDependencies.issueId, dependsOnId: issueDependencies.dependsOnId })
+        .from(issueDependencies)
+        .where(inArray(issueDependencies.issueId, subtaskIds));
+
+      const waves = getExecutionWaves(subtaskIds, edges);
+      const enriched = await withIssueLabels(db, subtasks);
+      const subtaskMap = new Map(enriched.map((s) => [s.id, s]));
+
+      return waves.map((waveIds) => waveIds.map((id) => subtaskMap.get(id)!));
     },
   };
 }

@@ -7,6 +7,8 @@ import {
   createIssueLabelSchema,
   checkoutIssueSchema,
   createIssueSchema,
+  createSubtaskSchema,
+  addDependencySchema,
   linkIssueApprovalSchema,
   updateIssueSchema,
 } from "@paperclipai/shared";
@@ -1183,6 +1185,102 @@ export function issueRoutes(db: Db, storage: StorageService) {
     });
 
     res.json({ ok: true });
+  });
+
+  // ── Subtask & Dependency Routes ────────────────────────────────────
+
+  router.post(
+    "/companies/:companyId/issues/:issueId/subtasks",
+    validate(createSubtaskSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const issueId = req.params.issueId as string;
+      assertCompanyAccess(req, companyId);
+      const actor = getActorInfo(req);
+      const subtask = await svc.createSubtask(companyId, issueId, req.body);
+
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "issue.subtask_created",
+        entityType: "issue",
+        entityId: subtask.id,
+        details: { parentIssueId: issueId, title: subtask.title, identifier: subtask.identifier },
+      });
+
+      res.status(201).json(subtask);
+    },
+  );
+
+  router.get("/companies/:companyId/issues/:issueId/subtasks", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const issueId = req.params.issueId as string;
+    assertCompanyAccess(req, companyId);
+    const subtasks = await svc.listSubtasks(companyId, issueId);
+    res.json(subtasks);
+  });
+
+  router.post(
+    "/companies/:companyId/issues/:issueId/dependencies",
+    validate(addDependencySchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const issueId = req.params.issueId as string;
+      assertCompanyAccess(req, companyId);
+      const actor = getActorInfo(req);
+      const edge = await svc.addDependency(companyId, issueId, req.body.dependsOnId);
+
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "issue.dependency_added",
+        entityType: "issue",
+        entityId: issueId,
+        details: { dependsOnId: req.body.dependsOnId },
+      });
+
+      res.status(201).json(edge);
+    },
+  );
+
+  router.delete(
+    "/companies/:companyId/issues/:issueId/dependencies/:dependsOnId",
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      const issueId = req.params.issueId as string;
+      const dependsOnId = req.params.dependsOnId as string;
+      assertCompanyAccess(req, companyId);
+      const actor = getActorInfo(req);
+      await svc.removeDependency(companyId, issueId, dependsOnId);
+
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "issue.dependency_removed",
+        entityType: "issue",
+        entityId: issueId,
+        details: { dependsOnId },
+      });
+
+      res.json({ ok: true });
+    },
+  );
+
+  router.get("/companies/:companyId/issues/:issueId/execution-waves", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const issueId = req.params.issueId as string;
+    assertCompanyAccess(req, companyId);
+    const waves = await svc.getExecutionWaves(companyId, issueId);
+    res.json(waves);
   });
 
   return router;

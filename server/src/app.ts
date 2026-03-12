@@ -25,6 +25,7 @@ import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { githubRoutes, githubWebhookRoute } from "./routes/github.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
@@ -125,6 +126,7 @@ export async function createApp(
     }),
   );
   api.use(githubRoutes(db));
+  api.use(webhookRoutes(db));
   app.use("/api", api);
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });

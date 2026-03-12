@@ -67,3 +67,18 @@ export const createIssueAttachmentMetadataSchema = z.object({
 });
 
 export type CreateIssueAttachmentMetadata = z.infer<typeof createIssueAttachmentMetadataSchema>;
+
+export const createSubtaskSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional().nullable(),
+  assigneeAgentId: z.string().uuid().optional().nullable(),
+  priority: z.enum(ISSUE_PRIORITIES).optional().default("medium"),
+});
+
+export type CreateSubtask = z.infer<typeof createSubtaskSchema>;
+
+export const addDependencySchema = z.object({
+  dependsOnId: z.string().uuid(),
+});
+
+export type AddDependency = z.infer<typeof addDependencySchema>;

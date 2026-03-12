@@ -521,6 +521,13 @@ if (config.heartbeatSchedulerEnabled) {
   })();
 }
 
+// Start webhook dispatcher (subscribes to live events + retry queue)
+{
+  const { startWebhookDispatcher } = await import("./services/webhook-dispatcher.js");
+  startWebhookDispatcher(db as any);
+  logger.info("Webhook dispatcher started");
+}
+
 if (config.databaseBackupEnabled) {
   const backupIntervalMs = config.databaseBackupIntervalMinutes * 60 * 1000;
   let backupInFlight = false;

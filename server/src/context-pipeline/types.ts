@@ -43,6 +43,12 @@ export interface PipelineContext {
   } | null;
   triggeringCommentId: string | null;
   structuredBrief: StructuredBrief | null;
+  skillProfile?: {
+    name: string;
+    systemPromptAdditions: string;
+    toolPreferences?: Record<string, unknown>;
+    outputFormatHints?: string;
+  } | null;
   metrics: {
     originalTokenEstimate: number;
     compressedTokenEstimate: number;

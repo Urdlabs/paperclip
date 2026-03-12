@@ -119,3 +119,10 @@ export interface IssueAttachment {
   updatedAt: Date;
   contentPath: string;
 }
+
+export interface SubtaskWithDependencies extends Issue {
+  dependsOn: string[];
+  dependedOnBy: string[];
+}
+
+export type DerivedParentStatus = "blocked" | "in_progress" | "done" | "ready";
