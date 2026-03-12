@@ -43,7 +43,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ### Pending Todos
 
-- Sync with upstream Paperclip source repo (general)
+None.
 
 ### Blockers/Concerns
 
