@@ -21,6 +21,7 @@ import type { MentionOption } from "../components/MarkdownEditor";
 import { StatusIcon } from "../components/StatusIcon";
 import { PriorityIcon } from "../components/PriorityIcon";
 import { StatusBadge } from "../components/StatusBadge";
+import { SubtaskTree } from "../components/SubtaskTree";
 import { Identity } from "../components/Identity";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -791,7 +792,9 @@ export function IssueDetail() {
         </TabsContent>
 
         <TabsContent value="subissues">
-          {childIssues.length === 0 ? (
+          {!issue.parentId && selectedCompanyId ? (
+            <SubtaskTree companyId={selectedCompanyId} parentIssueId={issue.id} />
+          ) : childIssues.length === 0 ? (
             <p className="text-xs text-muted-foreground">No sub-issues.</p>
           ) : (
             <div className="border border-border rounded-lg divide-y divide-border">

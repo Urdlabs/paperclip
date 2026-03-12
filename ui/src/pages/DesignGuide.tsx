@@ -128,6 +128,10 @@ import { ContextUtilizationBar } from "@/components/ContextUtilizationBar";
 import { BudgetBar } from "@/components/BudgetBar";
 import { TokenBreakdown } from "@/components/TokenBreakdown";
 import { TraceView } from "@/components/TraceView";
+import { WebhookEndpointList } from "@/components/WebhookEndpointList";
+import { WebhookDeliveryLog } from "@/components/WebhookDeliveryLog";
+import { SubtaskTree } from "@/components/SubtaskTree";
+import { SkillProfileSelector } from "@/components/SkillProfileSelector";
 import type { TranscriptEntry } from "@paperclipai/adapter-utils";
 import {
   LineChart,
@@ -1546,6 +1550,79 @@ export function DesignGuide() {
               </ChartContainer>
             );
           })()}
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  WEBHOOK MANAGEMENT                                           */}
+      {/* ============================================================ */}
+      <Section title="Webhook Management">
+        <SubSection title="WebhookEndpointList">
+          <p className="text-xs text-muted-foreground">
+            CRUD list for webhook endpoints. Shows URL, status badge, event type chips,
+            consecutive failure count, and actions (edit, test, view deliveries, delete).
+            Disabled endpoints show a yellow warning banner with re-enable button.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Usage: <code className="font-mono bg-muted px-1 rounded">{`<WebhookEndpointList companyId={companyId} />`}</code>
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Requires live company context with API backend.
+          </p>
+        </SubSection>
+
+        <SubSection title="WebhookDeliveryLog">
+          <p className="text-xs text-muted-foreground">
+            Delivery history table per webhook endpoint. Shows event type, status badge
+            (succeeded/failed/pending/disabled), attempt count, response status, and timestamp.
+            Expandable rows reveal payload preview and response body.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Usage: <code className="font-mono bg-muted px-1 rounded">{`<WebhookDeliveryLog companyId={companyId} webhookId={webhookId} />`}</code>
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Requires live company context with API backend.
+          </p>
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  SUBTASK TREE                                                 */}
+      {/* ============================================================ */}
+      <Section title="Subtask Tree">
+        <SubSection title="SubtaskTree">
+          <p className="text-xs text-muted-foreground">
+            Expandable subtask tree with dependency visualization. Each subtask shows
+            status icon, priority icon, identifier, title link, and status badge.
+            Dependencies are shown as labeled badges with remove buttons.
+            Includes inline add-subtask form and add-dependency popover per subtask.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Usage: <code className="font-mono bg-muted px-1 rounded">{`<SubtaskTree companyId={companyId} parentIssueId={issueId} />`}</code>
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Requires live company context with API backend.
+          </p>
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  SKILL PROFILE SELECTOR                                       */}
+      {/* ============================================================ */}
+      <Section title="Skill Profile Selector">
+        <SubSection title="SkillProfileSelector">
+          <p className="text-xs text-muted-foreground">
+            Dropdown selector for agent skill profiles. Shows builtin profiles tagged
+            with "(Built-in)" and custom profiles, separated by dividers. Includes
+            "No profile" option. Auto-seeds builtin profiles on first load if empty.
+            Selected profile description shown below the dropdown.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Usage: <code className="font-mono bg-muted px-1 rounded">{`<SkillProfileSelector companyId={companyId} currentProfileId={profileId} onChange={fn} />`}</code>
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            Requires live company context with API backend.
+          </p>
         </SubSection>
       </Section>
 

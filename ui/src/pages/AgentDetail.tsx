@@ -14,6 +14,7 @@ import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
+import { SkillProfileSelector } from "../components/SkillProfileSelector";
 import { adapterLabels, roleLabels } from "../components/agent-config-primitives";
 import { getUIAdapter, buildTranscript } from "../adapters";
 import type { TranscriptEntry } from "../adapters";
@@ -1093,6 +1094,9 @@ function AgentConfigurePage({
         updatePermissions={updatePermissions}
         companyId={companyId}
       />
+      {companyId && (
+        <SkillProfileSection agent={agent} agentId={agentId} companyId={companyId} />
+      )}
       <div>
         <h3 className="text-sm font-medium mb-3">API Keys</h3>
         <KeysTab agentId={agentId} companyId={companyId} />
@@ -2503,6 +2507,55 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             })}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ---- Skill Profile Section ---- */
+
+function SkillProfileSection({
+  agent,
+  agentId,
+  companyId,
+}: {
+  agent: Agent;
+  agentId: string;
+  companyId: string;
+}) {
+  const queryClient = useQueryClient();
+
+  const updateAgent = useMutation({
+    mutationFn: (profileId: string | null) =>
+      agentsApi.update(agentId, {
+        runtimeConfig: {
+          ...(agent.runtimeConfig as Record<string, unknown> ?? {}),
+          skillProfileId: profileId,
+        },
+      }, companyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentId) });
+      if (agent.urlKey) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.urlKey) });
+      }
+    },
+  });
+
+  const currentProfileId =
+    ((agent.runtimeConfig as Record<string, unknown>)?.skillProfileId as string) ?? null;
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium mb-3">Skill Profile</h3>
+      <SkillProfileSelector
+        companyId={companyId}
+        currentProfileId={currentProfileId}
+        onChange={(profileId) => updateAgent.mutate(profileId)}
+      />
+      {updateAgent.isError && (
+        <p className="text-xs text-destructive mt-1.5">
+          {updateAgent.error instanceof Error ? updateAgent.error.message : "Failed to update"}
+        </p>
       )}
     </div>
   );
