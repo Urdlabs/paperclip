@@ -61,6 +61,7 @@ import type { TokenBreakdown as TokenBreakdownData, UsageJsonExtended } from "@p
 import { TokenBreakdown } from "../components/TokenBreakdown";
 import { ContextUtilizationBar } from "../components/ContextUtilizationBar";
 import { BudgetBar } from "../components/BudgetBar";
+import { TraceView } from "../components/TraceView";
 import { agentRouteRef } from "../lib/utils";
 
 const runStatusIcons: Record<string, { icon: typeof CheckCircle2; color: string }> = {
@@ -2282,6 +2283,11 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
             </div>
           )}
         </div>
+      )}
+
+      {/* Execution Trace */}
+      {transcript.length > 0 && (
+        <TraceView transcript={transcript} />
       )}
 
       <div className="flex items-center justify-between">
