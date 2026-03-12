@@ -11,6 +11,7 @@ function createMockDb(options: {
   company?: { id: string; budgetMonthlyCents: number } | null;
   costSumTotal?: number;
   tokenStats?: { totalTokens: number; totalCached: number; totalInput: number; runCount: number };
+  compressionStats?: { avgRatio: number | null };
   costByAgentRows?: Array<{
     agentId: string;
     agentName: string | null;
@@ -54,20 +55,23 @@ function createMockDb(options: {
   return {
     select: vi.fn().mockImplementation(() => {
       callCount++;
-      // summary() makes two queries:
-      // 1st: cost sum total
-      // 2nd: token stats
+      // summary() makes four queries:
+      // 1st: company lookup
+      // 2nd: cost sum total
+      // 3rd: token stats
+      // 4th: compression ratio from heartbeatRuns
       if (callCount === 1 && options.company !== undefined) {
-        // This is the company query
         return createChain([options.company]);
       }
       if (callCount === 2 && options.costSumTotal !== undefined) {
-        // Cost sum query
         return createChain([{ total: options.costSumTotal }]);
       }
       if (callCount === 3 && options.tokenStats) {
-        // Token stats query
         return createChain([options.tokenStats]);
+      }
+      if (callCount === 4) {
+        const stats = options.compressionStats ?? { avgRatio: null };
+        return createChain([stats]);
       }
       // byAgent: first call returns costRows, second returns runRows
       if (options.costByAgentRows && callCount === 1) {
@@ -111,8 +115,24 @@ describe("costService.summary token analytics", () => {
     expect(result).toHaveProperty("totalTokens");
     expect(result).toHaveProperty("cacheHitRate");
     expect(result).toHaveProperty("avgTokensPerRun");
+    expect(result).toHaveProperty("avgCompressionRatio");
     expect(result.totalTokens).toBe(5000);
     expect(result.avgTokensPerRun).toBe(500);
+    expect(result.avgCompressionRatio).toBe(0);
+  });
+
+  it("returns avgCompressionRatio from heartbeatRuns usageJson", async () => {
+    const db = createMockDb({
+      company: { id: "c1", budgetMonthlyCents: 10000 },
+      costSumTotal: 100,
+      tokenStats: { totalTokens: 1000, totalCached: 0, totalInput: 1000, runCount: 2 },
+      compressionStats: { avgRatio: 0.4523 },
+    });
+
+    const service = costService(db);
+    const result = await service.summary("c1");
+
+    expect(result.avgCompressionRatio).toBe(0.4523);
   });
 
   it("computes cacheHitRate correctly: 400/1000 = 40.0", async () => {

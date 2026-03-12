@@ -110,6 +110,24 @@ export function costService(db: Db) {
       const avgTokensPerRun =
         Number(tokenStats.runCount) > 0 ? Math.round(totalTokens / Number(tokenStats.runCount)) : 0;
 
+      const runConditions: ReturnType<typeof eq>[] = [
+        eq(heartbeatRuns.companyId, companyId),
+        isNotNull(sql`${heartbeatRuns.usageJson} ->> 'compressionRatio'`),
+      ];
+      if (range?.from) runConditions.push(gte(heartbeatRuns.finishedAt, range.from));
+      if (range?.to) runConditions.push(lte(heartbeatRuns.finishedAt, range.to));
+
+      const [compressionStats] = await db
+        .select({
+          avgRatio: sql<number>`avg((${heartbeatRuns.usageJson} ->> 'compressionRatio')::numeric)`,
+        })
+        .from(heartbeatRuns)
+        .where(and(...runConditions));
+
+      const avgCompressionRatio = compressionStats.avgRatio
+        ? Number(Number(compressionStats.avgRatio).toFixed(4))
+        : 0;
+
       return {
         companyId,
         spendCents,
@@ -118,6 +136,7 @@ export function costService(db: Db) {
         totalTokens,
         cacheHitRate,
         avgTokensPerRun,
+        avgCompressionRatio,
       };
     },
 

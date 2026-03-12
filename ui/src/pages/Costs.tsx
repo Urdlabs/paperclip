@@ -228,11 +228,9 @@ export function Costs() {
                   <CardContent className="p-4">
                     <p className="text-xs text-muted-foreground">Compression Ratio</p>
                     <p className="text-2xl font-bold">
-                      {(() => {
-                        const s = data.summary as unknown as Record<string, unknown>;
-                        const ratio = typeof s.avgCompressionRatio === "number" ? s.avgCompressionRatio : 0;
-                        return ratio > 0 && ratio < 1 ? `${(1 / ratio).toFixed(1)}x` : "--";
-                      })()}
+                      {data.summary.avgCompressionRatio > 0 && data.summary.avgCompressionRatio < 1
+                        ? `${(1 / data.summary.avgCompressionRatio).toFixed(1)}x`
+                        : "--"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Context optimization</p>
                   </CardContent>

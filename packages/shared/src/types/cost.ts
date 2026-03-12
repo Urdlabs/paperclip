@@ -23,6 +23,7 @@ export interface CostSummary {
   totalTokens: number;
   cacheHitRate: number;
   avgTokensPerRun: number;
+  avgCompressionRatio: number;
 }
 
 export interface CostByAgent {
