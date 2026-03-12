@@ -37,11 +37,12 @@ Full details: [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   2. A pre-merge git tag exists that the developer can `git reset --hard` to if the merge goes wrong
   3. Fork migrations 0026-0030 retain their original numbering and upstream migrations are renumbered to 0031+ with a regenerated Drizzle journal -- verified by `drizzle-kit generate` producing no diff
   4. A fork feature manifest exists listing every v1.0-specific code path, route registration, service binding, and DB export so nothing is silently lost during merge
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md -- Conflict map with per-file resolution strategies + rollback safety net (PREP-01, PREP-02)
+- [ ] 05-02-PLAN.md -- Drizzle migration renumbering: upstream 0026-0027 to 0031-0032 (PREP-03)
+- [ ] 05-03-PLAN.md -- Fork feature manifest + canary export tests (PREP-04)
 
 ### Phase 6: Foundation & Database Merge
 **Goal**: Shared packages and database layer are merged with upstream, forming a correct dependency root for all remaining packages
@@ -97,7 +98,7 @@ Plans:
 | 2. Context Optimization Pipeline | v1.0 | 3/3 | Complete | 2026-03-11 |
 | 3. Observability & Monitoring UX | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 4. Notifications & Agent Capabilities | v1.0 | 5/5 | Complete | 2026-03-12 |
-| 5. Merge Preparation | v1.1 | 0/? | Not started | - |
+| 5. Merge Preparation | v1.1 | 0/3 | Planned | - |
 | 6. Foundation & Database Merge | v1.1 | 0/? | Not started | - |
 | 7. Server, UI & Full Verification | v1.1 | 0/? | Not started | - |
 | 8. Continuous Sync Automation | v1.1 | 0/? | Not started | - |
