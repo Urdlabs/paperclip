@@ -1,170 +1,141 @@
-# Technology Stack: Token Optimization & Observability
+# Technology Stack: Upstream Sync & Continuous Integration
 
-**Project:** Paperclip (Urdlabs Fork) - AI Agent Token Optimization Milestone
-**Researched:** 2026-03-09
-**Overall Confidence:** MEDIUM-HIGH
+**Project:** Paperclip (Urdlabs Fork) - v1.1 Upstream Sync Milestone
+**Researched:** 2026-03-12
+**Overall Confidence:** HIGH
 
 ## Context
 
-Paperclip already has a working cost tracking system: `cost_events` table storing per-run `inputTokens`, `outputTokens`, `costCents`, plus `usageJson` in `heartbeat_runs`. The Claude adapter parses `cache_read_input_tokens` from Claude's stream JSON output. The system tracks spending and enforces budgets per agent and per company.
+Paperclip fork is 226 commits behind upstream/master and 120 ahead. Diverged at commit c674462 (PR #238). A dry-run merge reveals 16 files with actual conflicts out of 285 upstream-changed files. The overlap is manageable: most fork additions (token analytics, observability, webhooks, skill profiles, code review) live in new files that upstream never touched. The conflict hotspots are: Dockerfile, server entry/routing, heartbeat service, DB migration numbering collisions, UI routing/layout, and pnpm-lock.yaml.
 
-What is **missing**: pre-invocation token estimation, prompt optimization before sending, context compression, detailed observability dashboards, and cross-adapter token analytics. This stack addresses those gaps.
+Existing CI already has 3 GitHub Actions workflows (pr-policy, pr-verify, refresh-lockfile) using actions/checkout@v4, actions/setup-node@v4 (Node 20), and pnpm/action-setup@v4. The project Dockerfile runs Node 22.
+
+This stack covers ONLY what is needed for the sync milestone. v1.0 stack (Express 5, React 19, Drizzle, etc.) is validated and unchanged.
 
 ## Recommended Stack
 
-### Token Counting & Estimation
+### GitHub Actions (Workflow Automation)
 
 | Technology | Version | Purpose | Why | Confidence |
 |------------|---------|---------|-----|------------|
-| `@anthropic-ai/sdk` | ^0.78.0 | Server-side exact token counting for Claude models | Already available in the ecosystem. The `client.messages.countTokens()` API is free, accurate, and supports tools/images/PDFs. Matches billing exactly. No offline tokenizer needed for Claude since the server can call this before invocation. | HIGH |
-| `gpt-tokenizer` | ^3.4.0 | Offline token estimation for OpenAI-family models (Codex adapter) | Pure JS, fastest tokenizer on npm, supports all OpenAI encodings (o200k_base for GPT-4o/Codex). No WASM needed, tiny footprint, synchronous `isWithinTokenLimit()` for fast budget checks. | HIGH |
+| `actions/checkout` | @v4 | Repository checkout with full history | Keep @v4 for now. Existing workflows use v4, and it works. The v6 release requires Node 24 runtime which GitHub runners support, but upgrading all 3 existing workflows simultaneously with the sync work adds unnecessary risk. Upgrade to v6 in a separate chore PR. | HIGH |
+| `actions/setup-node` | @v4 | Node.js environment setup | Same rationale -- keep @v4 for consistency with existing workflows. v6 dropped pnpm caching (now npm-only), so we would need to adjust caching strategy. Not worth it during sync milestone. | HIGH |
+| `pnpm/action-setup` | @v4 | pnpm installation | Already at latest major. Works reliably. | HIGH |
+| `peter-evans/create-pull-request` | @v7 | Automated PR creation for sync workflow | Creates PRs from workspace changes. Use v7 (not v8) because v8 requires Actions Runner v2.327.1+ for Node 24, and we want broad compatibility with GitHub-hosted runners. v7 is stable and actively maintained. | HIGH |
+| `actions/github-script` | @v7 | PR labeling and comment automation | Lightweight inline JavaScript for GitHub API calls (add labels, post conflict summaries as PR comments). Use v7 for Node 20 compatibility with existing runner setup. | HIGH |
 
-**Rationale:** Paperclip orchestrates multiple AI backends. Claude gets exact counts via API (free, rate-limited at 100-8000 RPM by tier). OpenAI-family models get offline estimation via `gpt-tokenizer`. This dual approach avoids adding a network call for Codex/OpenCode while maintaining accuracy for Claude.
+**Action version rationale:** All kept at the Node 20 generation (@v4/@v7) for consistency. The Node 24 generation (@v6/@v8) is available but introduces a runtime change across all workflows. Schedule a separate "upgrade CI to Node 24 actions" chore after sync is stable.
+
+### Git Strategy (No Libraries Needed)
+
+| Strategy | Purpose | Why | Confidence |
+|----------|---------|-----|------------|
+| `git merge` (not rebase) | Integrate upstream commits | With 226 upstream commits and 120 fork commits, rebase would replay our 120 commits one-by-one onto upstream HEAD -- each could conflict individually, and it rewrites all our commit SHAs, breaking any references. Merge creates a single merge commit, conflicts are resolved once, history is preserved on both sides. This is the textbook case for merge over rebase. | HIGH |
+| Incremental merge by area | Chunk conflict resolution | Merge upstream in logical batches: (1) non-conflicting files first (fast-forward areas), (2) DB migrations, (3) server core, (4) UI layer. Each batch gets tested before the next. Reduces blast radius of any single conflict resolution error. | HIGH |
+| `git merge --no-commit --no-ff` | Dry-run conflict detection | Used in the sync workflow to detect conflicts without committing. If conflicts exist, the workflow creates a PR with the conflict report. If clean, it auto-merges and creates a verification PR. | HIGH |
+| `git rerere` (reuse recorded resolution) | Avoid re-resolving same conflicts | Enable `rerere.enabled=true` in the repo. Git records conflict resolutions and auto-applies them if the same conflict appears again (common during iterative sync). Zero-cost insurance. | MEDIUM |
 
 **Do NOT use:**
-- `tiktoken` (WASM) -- heavier, requires WASM runtime, no advantage over `gpt-tokenizer` for counting
-- `js-tiktoken` -- slower than `gpt-tokenizer`, fewer features, less actively maintained
-- Offline approximations for Claude (e.g., tiktoken with p50k_base) -- inaccurate for billing, Anthropic's API is free
+- `git rebase` -- rewrites 120 fork commits, forces force-push, loses merge context, each of 120 commits could conflict individually
+- `git cherry-pick` in batch -- same individual-conflict problem as rebase, plus loses the "merged upstream at commit X" marker
+- Third-party merge tools (Mergify, Kodiak) -- overkill for a single-developer fork. Raw git + GitHub Actions is simpler and fully controllable
 
-### Context Management & Prompt Optimization
-
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| `web-tree-sitter` | ^0.26.6 | AST-based code summarization for reducing context sent to agents | Proven approach used by Aider and Cline. Parse code into AST, extract function/class signatures, build repo maps. Achieves 4-50x context reduction while preserving structural awareness. WASM-based, works in Node.js. | HIGH |
-| Custom prompt template engine (built-in) | N/A | Dynamic prompt assembly with cacheable prefixes | Extend existing `renderTemplate()` in adapter-utils. Structure prompts with static content (system instructions, skills) first, dynamic content (task, context) last. Maximizes prompt cache hit rate. | HIGH |
-| Anthropic prompt caching (API-level) | N/A | 90% cost reduction on repeated prompt prefixes | Claude already supports `cache_control: { type: "ephemeral" }`. 5-minute TTL is free refresh; 1-hour TTL costs 2x base but avoids repeated cache writes. Paperclip's heartbeat loop (agents run repeatedly) is ideal for caching -- same system prompt + skills on every beat. | HIGH |
-
-**Rationale:** The biggest token savings come from three layers: (1) sending less context via tree-sitter code summarization, (2) structuring prompts so prefixes cache, and (3) compressing/summarizing conversation history. These are complementary, not competing.
-
-**Do NOT use:**
-- LLMLingua / prompt compression models -- requires a separate ML model runtime (Python-based, needs GPU or significant CPU). Overkill for a TypeScript monorepo. The tree-sitter approach gives comparable context reduction for code-focused agents without ML overhead.
-- LangChain / LlamaIndex -- massive frameworks that don't fit Paperclip's lean adapter architecture. Would introduce Python dependencies or heavy JS bundles for features Paperclip doesn't need.
-- Vector databases for RAG -- the agents already operate within Git repos with file system access. Tree-sitter indexing with PageRank-style relevance (Aider's approach) is more appropriate for code context than embedding-based retrieval.
-
-### Observability & Monitoring
+### Conflict Detection & Resolution
 
 | Technology | Version | Purpose | Why | Confidence |
 |------------|---------|---------|-----|------------|
-| `prom-client` | ^16.0.0 | Prometheus metrics for token usage, cost, and run performance | Lightweight, battle-tested, Node.js native. Paperclip already uses Pino for structured logging; adding Prometheus metrics for token usage/cost is the natural next step. Exposes `/metrics` endpoint for scraping. | HIGH |
-| `@opentelemetry/sdk-metrics` | ^2.6.0 | OTel-native metrics aligned with GenAI semantic conventions | Future-proof alignment with the OpenTelemetry GenAI spec (`gen_ai.client.token.usage`, `gen_ai.client.operation.duration`). Experimental but rapidly stabilizing. Can export to Prometheus via `@opentelemetry/exporter-prometheus`. | MEDIUM |
-| `@opentelemetry/exporter-prometheus` | ^0.213.0 | Bridge OTel metrics to Prometheus format | Allows using OTel semantic conventions while still scraping with Prometheus. Single `/metrics` endpoint. | MEDIUM |
+| `git diff --name-only --diff-filter=U` | Built-in | List conflicted files after merge attempt | Standard git. No external tool needed. The sync workflow uses this to generate a conflict report. | HIGH |
+| `pnpm install --lockfile-only` | Existing | Regenerate pnpm-lock.yaml after merge | pnpm-lock.yaml will always conflict (it is a generated artifact). The correct resolution is always: accept both package.json changes, then regenerate the lockfile. Never manually merge lockfiles. | HIGH |
+| `pnpm drizzle-kit generate` | Existing | Regenerate DB migration metadata after renumbering | Migration 0026/0027 collide between fork and upstream (different tables, same numbers). Resolution: renumber fork migrations to 0028/0029, regenerate `_journal.json` and snapshots. The content (SQL) is fine -- only the ordering metadata conflicts. | HIGH |
 
-**Recommendation:** Start with `prom-client` for immediate, reliable metrics. Layer in OTel GenAI conventions later as the spec stabilizes. The two are compatible -- `prom-client` supports OTel exemplars ({traceId, spanId}).
-
-**Key metrics to expose:**
-- `paperclip_agent_tokens_total` (counter, labels: agent_id, model, direction=input|output|cached)
-- `paperclip_agent_cost_cents_total` (counter, labels: agent_id, model, billing_type)
-- `paperclip_agent_run_duration_seconds` (histogram, labels: agent_id, adapter_type, status)
-- `paperclip_agent_context_utilization_ratio` (gauge, estimated tokens / context window size)
-- `paperclip_prompt_cache_hit_ratio` (gauge, cached_input_tokens / total_input_tokens)
-
-**Do NOT use:**
-- Datadog/New Relic/commercial APM -- unnecessary cost for a self-hosted tool. Prometheus + Grafana (or just the built-in UI) is sufficient.
-- Langfuse/Helicone/other LLM observability SaaS -- adds external dependency. Paperclip already has its own cost tracking; extend it rather than duplicate with third-party.
-
-### Visualization (UI)
+### Verification Pipeline (Post-Merge)
 
 | Technology | Version | Purpose | Why | Confidence |
 |------------|---------|---------|-----|------------|
-| `recharts` | ^3.8.0 | Token usage and cost dashboard charts | Lightweight, React-native, composable components. The existing ActivityCharts.tsx uses hand-built SVG bars -- recharts provides proper tooltips, responsive layouts, and area/line/bar charts with minimal bundle size. Better than hand-rolling for the token dashboard. | MEDIUM |
+| `vitest` | ^3.0.5 (existing) | Run full test suite after merge | 411 tests (374 server, 37 UI) validate that fork features survive upstream merge. No new dependency needed. | HIGH |
+| `pnpm -r typecheck` | Existing | TypeScript compilation check | Catches type-level incompatibilities introduced by upstream changes (e.g., upstream changed a shared type that our fork also extends). | HIGH |
+| `pnpm build` | Existing | Full build verification | Ensures all packages build successfully after merge. Catches import/export issues. | HIGH |
+| Custom v1.0 smoke test script | New (bash) | Verify v1.0 features specifically | A focused script that hits key v1.0 endpoints (token analytics, webhook config, skill profiles) to verify they survived the merge. Not a new dependency -- a shell script using curl against the built server. | MEDIUM |
 
-**Rationale:** The existing UI uses custom div-based bar charts which work for simple activity counts but lack the interactivity needed for token analytics (tooltips showing exact counts, zoom/pan over time ranges, stacked area for input/output/cached breakdown). Recharts is the lightest-weight option that integrates cleanly with the existing Tailwind + Radix UI setup.
+### New Workflow: `upstream-sync.yml`
 
-**Alternative considered:**
-- Nivo -- more beautiful defaults but heavier bundle, more opinionated theming that may conflict with existing Tailwind/Radix design system.
-- Keep hand-rolling -- viable for simple cases but doesn't scale to the 5-6 chart types needed for a proper token analytics dashboard (time series, breakdowns by model, by agent, budget utilization gauges).
+| Aspect | Decision | Why |
+|--------|----------|-----|
+| Trigger | `schedule: cron '0 6 * * 1'` + `workflow_dispatch` | Weekly Monday 6 AM UTC check is frequent enough for upstream's pace (~5-10 commits/week). Manual dispatch for on-demand sync. |
+| Detection | `git fetch upstream && git rev-list HEAD..upstream/master --count` | If count > 0, upstream has new commits. Simple, reliable, no API calls needed. |
+| Clean merge path | Auto-merge + create verification PR | If `git merge --no-commit` succeeds with no conflicts, commit the merge, push to a branch, create PR with "upstream-sync" label for review. PR triggers existing pr-verify workflow (typecheck + test + build). |
+| Conflict path | Create conflict-report PR | If merge has conflicts, abort merge, create a PR with a comment listing conflicted files and their categories (server/UI/DB/config). Human resolves manually. |
+| Branch naming | `upstream-sync/YYYY-MM-DD` | Date-stamped for clarity. Old branches auto-cleaned after merge. |
+| Permissions | `contents: write`, `pull-requests: write` | Minimum required. Uses default `GITHUB_TOKEN` -- no PAT needed since we are not triggering other workflows from the sync PR. |
 
-### Database Schema Extensions
+## What NOT to Add
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Drizzle ORM (existing) | 0.38.4 | New tables/columns for granular token tracking | Already the ORM. Add `cached_input_tokens` to `cost_events`, add a `token_optimization_events` table for before/after metrics, and time-series aggregation materialized views in PostgreSQL. | HIGH |
-| PostgreSQL `pg_stat_statements` + materialized views | N/A (built-in PG) | Efficient time-series token aggregation | Hourly/daily rollups of token usage by agent/model/project. Avoids expensive real-time aggregation queries on the growing `cost_events` table. | HIGH |
+| Rejected Tool | Why Not |
+|---------------|---------|
+| Mergify / Kodiak | Auto-merge bots designed for team PRs, not fork sync. Adds external dependency and configuration complexity for a problem solved by 30 lines of shell script. |
+| GitHub's built-in "Sync fork" button / API | Only does fast-forward sync. With 120 commits ahead, it cannot sync -- it would require discarding our changes. Useless for diverged forks. |
+| `aormsby/Fork-Sync-With-Upstream-action` | Designed for "clean" forks that track upstream without divergence. Does not handle conflict detection or PR creation for diverged forks. Would silently fail or force-push. |
+| Separate merge driver for lockfiles | `pnpm install --lockfile-only` already handles this. A custom merge driver adds `.gitattributes` complexity for no gain. |
+| git-filter-repo / BFG | History rewriting tools. We want to preserve history, not rewrite it. |
+| Dependabot / Renovate for upstream | These track package versions, not upstream repository commits. Wrong tool for the job. |
 
-**Schema changes needed:**
-1. Add `cachedInputTokens integer DEFAULT 0` to `cost_events` -- Claude adapter already parses `cache_read_input_tokens` but it is not persisted separately
-2. Add `contextTokensBefore integer` and `contextTokensAfter integer` to `heartbeat_runs` -- track optimization effectiveness
-3. Create `token_usage_hourly` materialized view for dashboard queries
-4. Add `promptTemplateHash text` to `heartbeat_runs` -- track which prompt versions produce better token efficiency
+## Existing Workflow Updates Needed
+
+The 3 existing workflows need minor updates to work smoothly with the sync process:
+
+| Workflow | Change | Why |
+|----------|--------|-----|
+| `pr-verify.yml` | Add `upstream-sync/**` to branch trigger | Sync PRs need the same typecheck + test + build verification as regular PRs. |
+| `pr-policy.yml` | Exempt `upstream-sync/**` branches from lockfile edit block | Sync PRs legitimately regenerate pnpm-lock.yaml. The policy should skip the lockfile check when the PR branch starts with `upstream-sync/`. |
+| `refresh-lockfile.yml` | No changes needed | Only triggers on push to master. Sync merges go through PR first. |
+
+## Node Version Note
+
+Current mismatch: Dockerfile uses Node 22, CI uses Node 20. This is not a sync-milestone concern but should be addressed soon. Node 20 LTS reaches EOL April 2026. Recommend upgrading CI to Node 22 in a separate chore after sync is complete.
+
+## Installation
+
+```bash
+# No new npm dependencies needed for the sync milestone.
+# All tooling is git (built-in) + GitHub Actions (YAML config) + existing pnpm/vitest/tsc.
+
+# The only "installation" is creating new workflow files:
+# .github/workflows/upstream-sync.yml  (new)
+# .github/workflows/pr-verify.yml      (update branch trigger)
+# .github/workflows/pr-policy.yml      (update lockfile exemption)
+```
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Token counting (Claude) | `@anthropic-ai/sdk` countTokens | Offline tiktoken approximation | Inaccurate (different tokenizer), API is free |
-| Token counting (OpenAI) | `gpt-tokenizer` | `tiktoken` (WASM) | Heavier, WASM complexity, gpt-tokenizer is faster |
-| Code context reduction | `web-tree-sitter` | Embedding-based RAG | Tree-sitter is deterministic, no ML infra needed |
-| Prompt compression | Structured caching + summarization | LLMLingua | Requires Python ML runtime, heavy for JS monorepo |
-| Metrics | `prom-client` | Custom DB-only metrics | No standard format, no Grafana integration |
-| Charting | `recharts` | Hand-built SVG (current approach) | Doesn't scale to interactive token analytics |
-| LLM proxy | None (direct adapter calls) | LiteLLM proxy | Python dependency, 3-5ms overhead per call, Paperclip's adapter system already does routing |
-
-## Installation
-
-```bash
-# Token counting & estimation
-pnpm add -w gpt-tokenizer
-pnpm --filter @paperclipai/server add @anthropic-ai/sdk
-
-# Code context (AST parsing)
-pnpm --filter @paperclipai/server add web-tree-sitter
-
-# Tree-sitter language grammars (install as needed per supported languages)
-# These are .wasm files loaded at runtime by web-tree-sitter
-# Download from https://github.com/nicolo-ribaudo/tree-sitter-wasm-pack/releases
-# or build from individual tree-sitter-* grammar repos
-
-# Observability
-pnpm --filter @paperclipai/server add prom-client
-
-# Charting (UI)
-pnpm --filter @paperclipai/ui add recharts
-
-# Optional: OTel (add when ready to adopt GenAI semantic conventions)
-# pnpm --filter @paperclipai/server add @opentelemetry/sdk-metrics @opentelemetry/exporter-prometheus
-```
-
-## Architecture Integration Points
-
-### Where token optimization hooks into existing code
-
-1. **Pre-invocation estimation** -- In `heartbeat.ts` before calling `adapter.execute()`, call token counting API to estimate prompt size. If over budget threshold, trigger context compression.
-
-2. **Prompt structure optimization** -- In each adapter's `execute()` function (e.g., `claude-local/execute.ts`), restructure the prompt so static content (system instructions, skills, tool definitions) comes first for cache hits. The `promptTemplate` + `instructionsFilePath` already flow through `renderTemplate()` -- extend this to be cache-aware.
-
-3. **Context compression** -- New module in `packages/shared/` or a new package `packages/context-optimizer/` that uses `web-tree-sitter` to build repo maps and summarize code files before injecting them as agent context.
-
-4. **Post-invocation recording** -- In `heartbeat.ts` after `execute()` returns, record `cachedInputTokens` from `UsageSummary` into both `cost_events` and `heartbeat_runs.usageJson`. The Claude adapter already parses this (line 62 of `parse.ts`: `cachedInputTokens: asNumber(usageObj.cache_read_input_tokens, 0)`).
-
-5. **Metrics exposure** -- New Express middleware in `server/src/middleware/` that initializes `prom-client` and exposes `/metrics`. Record counters/histograms on every heartbeat run completion.
-
-6. **Dashboard UI** -- New page or tab in the existing Org/Dashboard views using `recharts` to visualize token usage trends, cache hit rates, and cost breakdowns.
+| Merge strategy | `git merge` (single merge commit) | `git rebase` | Rewrites 120 commits, individual conflicts per commit, force-push required |
+| Merge approach | Incremental by area | Big-bang single merge | 16 conflicts at once is manageable, but incremental allows testing between chunks |
+| Sync automation | Custom workflow (30 lines shell) | `aormsby/Fork-Sync-With-Upstream-action` | Cannot handle diverged forks, no conflict detection |
+| PR creation | `peter-evans/create-pull-request@v7` | `gh pr create` in shell | peter-evans handles branch creation, pushing, and PR update in one step; less shell scripting |
+| Conflict resolution | Manual (human-in-the-loop) | Auto-resolution with `git merge -X theirs` | Silently drops our changes. Unacceptable for a fork with 120 custom commits. |
+| Action versions | Stay at v4/v7 (Node 20 gen) | Upgrade to v6/v8 (Node 24 gen) | Unnecessary risk during sync milestone. Upgrade separately. |
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Token counting approach | HIGH | Anthropic API verified via official docs. gpt-tokenizer verified on npm. |
-| Prompt caching strategy | HIGH | Anthropic caching is production-ready, well-documented. Paperclip's heartbeat loop is ideal for it. |
-| Tree-sitter for context | HIGH | Proven by Aider (4.3-6.5% context utilization) and Cline. Multiple independent implementations validate the approach. |
-| Prometheus metrics | HIGH | prom-client is the standard for Node.js. Well-established pattern. |
-| OTel GenAI conventions | MEDIUM | Spec is experimental (not yet stable). Worth aligning with but don't depend on it being final. |
-| Recharts for dashboards | MEDIUM | Good fit but the existing hand-rolled charts may suffice if dashboard scope is small. Add recharts only when building the full analytics view. |
-| Schema changes | HIGH | Straightforward Drizzle migration. No exotic features needed. |
+| Git merge strategy | HIGH | Textbook case: large diverged fork, many commits both sides, merge preserves both histories |
+| Conflict count (16 files) | HIGH | Verified with actual dry-run `git merge --no-commit` against current upstream/master |
+| GitHub Actions versions | HIGH | Verified release pages directly. v4/v7 are current stable for Node 20 runners. |
+| peter-evans/create-pull-request | HIGH | Well-maintained (v7.0.11 latest patch), 10K+ stars, standard for automated PRs |
+| DB migration resolution | HIGH | Inspected actual conflict: fork 0026/0027 vs upstream 0026/0027 have different table names. Renumbering fork to 0028/0029 is clean. |
+| Workflow design | MEDIUM | Standard patterns, but the conflict-detection-then-PR-creation flow needs testing. Edge cases: concurrent sync runs, upstream force-push, empty diff after merge. |
 
 ## Sources
 
-- [Anthropic Token Counting API](https://platform.claude.com/docs/en/build-with-claude/token-counting) -- Official docs, verified 2026-03-09
-- [Anthropic Prompt Caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) -- Official docs
-- [gpt-tokenizer npm](https://www.npmjs.com/package/gpt-tokenizer) -- v3.4.0, verified on npm
-- [web-tree-sitter npm](https://www.npmjs.com/package/web-tree-sitter) -- v0.26.6, verified on npm
-- [prom-client GitHub](https://github.com/siimon/prom-client) -- Standard Prometheus client for Node.js
-- [@opentelemetry/sdk-metrics npm](https://www.npmjs.com/package/@opentelemetry/sdk-metrics) -- v2.6.0
-- [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/) -- Experimental spec
-- [recharts npm](https://www.npmjs.com/package/recharts) -- v3.8.0, verified on npm
-- [Aider repo map with tree-sitter](https://aider.chat/2023/10/22/repomap.html) -- Implementation details
-- [Context Engineering for Agents](https://rlancemartin.github.io/2025/06/23/context_engineering/) -- Patterns and techniques
-- [Spotify Background Coding Agents: Context Engineering](https://engineering.atspotify.com/2025/11/context-engineering-background-coding-agents-part-2) -- Production patterns
-- [Context Window Management Strategies](https://www.getmaxim.ai/articles/context-window-management-strategies-for-long-context-ai-agents-and-chatbots/) -- Overview
-- [Prompt Caching Guide 2025](https://promptbuilder.cc/blog/prompt-caching-token-economics-2025) -- Cross-provider comparison
-- [LLM Observability with OpenTelemetry and Grafana](https://grafana.com/blog/a-complete-guide-to-llm-observability-with-opentelemetry-and-grafana-cloud/) -- Architecture patterns
+- [actions/checkout releases](https://github.com/actions/checkout/releases) -- v6.0.2 latest, v4.3.1 for Node 20
+- [actions/setup-node releases](https://github.com/actions/setup-node/releases) -- v6.3.0 latest, v4 for Node 20
+- [pnpm/action-setup](https://github.com/pnpm/action-setup) -- v4.3.0 latest
+- [peter-evans/create-pull-request releases](https://github.com/peter-evans/create-pull-request/releases) -- v8.1.0 latest (Node 24), v7.0.11 for Node 20
+- [actions/github-script](https://github.com/actions/github-script) -- v8 latest (Node 24), v7.1.0 for Node 20
+- [Atlassian: Merging vs Rebasing](https://www.atlassian.com/git/tutorials/merging-vs-rebasing) -- Strategy rationale
+- [Drizzle ORM migration conflicts discussion](https://github.com/drizzle-team/drizzle-orm/discussions/1104) -- Migration renumbering approach
+- [GitHub Docs: Events that trigger workflows](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows) -- schedule/cron syntax
+- [GitHub Docs: Sync Forks](https://dev.to/github/sync-forks-to-upstream-using-github-actions-gle) -- Fork sync patterns
+- [Node 20 deprecation on GitHub Actions](https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/) -- Node 20 EOL timeline
