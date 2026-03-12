@@ -33,3 +33,7 @@ export { companySecrets } from "./company_secrets.js";
 export { companySecretVersions } from "./company_secret_versions.js";
 export { githubApps } from "./github_apps.js";
 export { githubAppInstallations } from "./github_app_installations.js";
+export { issueDependencies } from "./issue_dependencies.js";
+export { webhookEndpoints } from "./webhook_endpoints.js";
+export { webhookDeliveries } from "./webhook_deliveries.js";
+export { skillProfiles } from "./skill_profiles.js";
