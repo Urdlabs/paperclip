@@ -26,14 +26,9 @@ import {
   Webhook,
 } from "lucide-react";
 
-const EVENT_TYPES = [
-  "issue.created",
-  "issue.updated",
-  "issue.comment_added",
-  "agent.created",
-  "agent.updated",
-  "heartbeat.invoked",
-] as const;
+import { WEBHOOK_EVENT_TYPES } from "@paperclipai/shared";
+
+const EVENT_TYPES = WEBHOOK_EVENT_TYPES;
 
 type WebhookFormData = {
   url: string;
