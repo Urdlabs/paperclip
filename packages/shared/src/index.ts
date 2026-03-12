@@ -31,6 +31,10 @@ export {
   JOIN_REQUEST_TYPES,
   JOIN_REQUEST_STATUSES,
   PERMISSION_KEYS,
+  WEBHOOK_EVENT_TYPES,
+  type WebhookEventType,
+  BUILTIN_SKILL_PROFILE_SLUGS,
+  type BuiltinSkillProfileSlug,
   type CompanyStatus,
   type DeploymentMode,
   type DeploymentExposure,
@@ -84,6 +88,8 @@ export type {
   IssueComment,
   IssueAttachment,
   IssueLabel,
+  SubtaskWithDependencies,
+  DerivedParentStatus,
   Goal,
   Approval,
   ApprovalComment,
@@ -129,6 +135,11 @@ export type {
   GitHubAppConfig,
   GitHubAppInstallation,
   GitHubAppStatus,
+  WebhookEndpoint,
+  WebhookDelivery,
+  WebhookPayload,
+  SkillProfile,
+  SkillProfileSummary,
 } from "./types/index.js";
 
 export {
@@ -184,6 +195,10 @@ export {
   type AddIssueComment,
   type LinkIssueApproval,
   type CreateIssueAttachmentMetadata,
+  createSubtaskSchema,
+  addDependencySchema,
+  type CreateSubtask,
+  type AddDependency,
   createGoalSchema,
   updateGoalSchema,
   type CreateGoal,
@@ -243,6 +258,14 @@ export {
   type CompanyPortabilityExport,
   type CompanyPortabilityPreview,
   type CompanyPortabilityImport,
+  createWebhookEndpointSchema,
+  updateWebhookEndpointSchema,
+  type CreateWebhookEndpoint,
+  type UpdateWebhookEndpoint,
+  createSkillProfileSchema,
+  updateSkillProfileSchema,
+  type CreateSkillProfile,
+  type UpdateSkillProfile,
 } from "./validators/index.js";
 
 export { API_PREFIX, API } from "./api.js";

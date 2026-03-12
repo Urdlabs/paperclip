@@ -70,6 +70,10 @@ export {
   type AddIssueComment,
   type LinkIssueApproval,
   type CreateIssueAttachmentMetadata,
+  createSubtaskSchema,
+  addDependencySchema,
+  type CreateSubtask,
+  type AddDependency,
 } from "./issue.js";
 
 export {
@@ -133,3 +137,17 @@ export {
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";
+
+export {
+  createWebhookEndpointSchema,
+  updateWebhookEndpointSchema,
+  type CreateWebhookEndpoint,
+  type UpdateWebhookEndpoint,
+} from "./webhooks.js";
+
+export {
+  createSkillProfileSchema,
+  updateSkillProfileSchema,
+  type CreateSkillProfile,
+  type UpdateSkillProfile,
+} from "./skill-profiles.js";

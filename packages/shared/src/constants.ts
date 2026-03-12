@@ -246,3 +246,23 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+export const WEBHOOK_EVENT_TYPES = [
+  "run.completed",
+  "run.failed",
+  "run.started",
+  "approval.requested",
+  "issue.created",
+  "issue.updated",
+] as const;
+export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
+
+export const BUILTIN_SKILL_PROFILE_SLUGS = [
+  "refactor",
+  "test-writer",
+  "reviewer",
+  "debugger",
+  "architect",
+  "documentation-writer",
+] as const;
+export type BuiltinSkillProfileSlug = (typeof BUILTIN_SKILL_PROFILE_SLUGS)[number];

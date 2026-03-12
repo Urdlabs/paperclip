@@ -20,6 +20,8 @@ export type {
   IssueAncestorGoal,
   IssueAttachment,
   IssueLabel,
+  SubtaskWithDependencies,
+  DerivedParentStatus,
 } from "./issue.js";
 export type { Goal } from "./goal.js";
 export type { Approval, ApprovalComment } from "./approval.js";
@@ -74,3 +76,5 @@ export type {
 } from "./company-portability.js";
 export type { TaskType, TaskTypeTemplateConfig, LabelMapping } from "./task-types.js";
 export { TASK_TYPES } from "./task-types.js";
+export type { WebhookEndpoint, WebhookDelivery, WebhookPayload } from "./webhooks.js";
+export type { SkillProfile, SkillProfileSummary } from "./skill-profiles.js";
