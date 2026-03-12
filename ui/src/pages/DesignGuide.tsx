@@ -129,6 +129,27 @@ import { BudgetBar } from "@/components/BudgetBar";
 import { TokenBreakdown } from "@/components/TokenBreakdown";
 import { TraceView } from "@/components/TraceView";
 import type { TranscriptEntry } from "@paperclipai/adapter-utils";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
+import { formatChartDate, formatTokenCount, formatCostCents } from "@/lib/chart-utils";
 
 /* ------------------------------------------------------------------ */
 /*  Sample trace data for design guide                                 */
@@ -1413,6 +1434,118 @@ export function DesignGuide() {
         </SubSection>
         <SubSection title="Empty State">
           <TraceView transcript={[]} />
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  ANALYTICS CHARTS                                              */}
+      {/* ============================================================ */}
+      <Section title="Analytics Charts">
+        <SubSection title="Token Usage Over Time (Line Chart)">
+          <ChartContainer
+            config={{
+              inputTokens: { label: "Input Tokens", color: "var(--color-chart-1)" },
+              outputTokens: { label: "Output Tokens", color: "var(--color-chart-2)" },
+            } satisfies ChartConfig}
+            className="h-[250px] w-full"
+          >
+            <LineChart
+              data={[
+                { date: "2026-03-01T00:00:00Z", inputTokens: 45000, outputTokens: 12000 },
+                { date: "2026-03-02T00:00:00Z", inputTokens: 52000, outputTokens: 15000 },
+                { date: "2026-03-03T00:00:00Z", inputTokens: 38000, outputTokens: 9500 },
+                { date: "2026-03-04T00:00:00Z", inputTokens: 61000, outputTokens: 18000 },
+                { date: "2026-03-05T00:00:00Z", inputTokens: 47000, outputTokens: 14000 },
+                { date: "2026-03-06T00:00:00Z", inputTokens: 55000, outputTokens: 16500 },
+                { date: "2026-03-07T00:00:00Z", inputTokens: 43000, outputTokens: 11000 },
+              ]}
+              accessibilityLayer
+            >
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis dataKey="date" tickFormatter={formatChartDate} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+              <YAxis tickFormatter={formatTokenCount} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
+              <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => formatChartDate(l)} formatter={(v) => formatTokenCount(Number(v))} />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Line type="monotone" dataKey="inputTokens" stroke="var(--color-chart-1)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="outputTokens" stroke="var(--color-chart-2)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ChartContainer>
+        </SubSection>
+
+        <SubSection title="Cost Per Agent (Horizontal Bar Chart)">
+          <ChartContainer
+            config={{ costCents: { label: "Cost", color: "var(--color-chart-3)" } } satisfies ChartConfig}
+            className="h-[200px] w-full"
+          >
+            <BarChart
+              data={[
+                { name: "ceo-agent", costCents: 2450 },
+                { name: "dev-agent", costCents: 1820 },
+                { name: "qa-agent", costCents: 950 },
+                { name: "docs-agent", costCents: 430 },
+                { name: "ops-agent", costCents: 210 },
+              ]}
+              layout="vertical"
+              accessibilityLayer
+            >
+              <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+              <XAxis type="number" tickFormatter={formatCostCents} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} width={100} />
+              <ChartTooltip content={<ChartTooltipContent formatter={(v) => formatCostCents(Number(v))} hideIndicator />} />
+              <Bar dataKey="costCents" fill="var(--color-chart-3)" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ChartContainer>
+        </SubSection>
+
+        <SubSection title="Context Composition (Donut Chart)">
+          {(() => {
+            const compositionCfg: ChartConfig = {
+              systemPrompt: { label: "System Prompt", color: "var(--color-chart-1)" },
+              skillsTools: { label: "Skills & Tools", color: "var(--color-chart-2)" },
+              issueContext: { label: "Issue Context", color: "var(--color-chart-3)" },
+              fileContent: { label: "File Content", color: "var(--color-chart-4)" },
+              history: { label: "History", color: "var(--color-chart-5)" },
+            };
+            const donutData = [
+              { name: "systemPrompt", value: 35000 },
+              { name: "skillsTools", value: 22000 },
+              { name: "issueContext", value: 18000 },
+              { name: "fileContent", value: 12000 },
+              { name: "history", value: 8000 },
+            ];
+            const donutColors = [
+              "var(--color-chart-1)",
+              "var(--color-chart-2)",
+              "var(--color-chart-3)",
+              "var(--color-chart-4)",
+              "var(--color-chart-5)",
+            ];
+            return (
+              <ChartContainer config={compositionCfg} className="h-[250px] w-full">
+                <PieChart accessibilityLayer>
+                  <ChartTooltip content={<ChartTooltipContent nameKey="name" formatter={(v) => formatTokenCount(Number(v))} />} />
+                  <Pie
+                    data={donutData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    label={({ name, percent }: { name?: string; percent?: number }) => {
+                      const cfg = name ? compositionCfg[name] : undefined;
+                      return `${cfg?.label ?? name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`;
+                    }}
+                    labelLine={false}
+                  >
+                    {donutData.map((entry, i) => (
+                      <Cell key={entry.name} fill={donutColors[i]} />
+                    ))}
+                  </Pie>
+                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                </PieChart>
+              </ChartContainer>
+            );
+          })()}
         </SubSection>
       </Section>
 
