@@ -36,7 +36,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Agent Capabilities
 
-- [ ] **AGNT-01**: Task decomposition allows breaking complex issues into subtasks with parent-child relationships and dependency ordering
+- [x] **AGNT-01**: Task decomposition allows breaking complex issues into subtasks with parent-child relationships and dependency ordering
 - [ ] **AGNT-02**: Agent skills/persona library provides predefined skill profiles (refactor, test-writer, reviewer, debugger) that shape agent prompt and behavior
 - [x] **AGNT-03**: Dedicated code review workflow where review-assigned agents receive PR diffs, produce structured feedback, and post review comments
 
@@ -100,7 +100,7 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | MNTR-01 | Phase 3 | Complete |
 | MNTR-02 | Phase 3 | Complete |
 | MNTR-03 | Phase 3 | Complete |
-| AGNT-01 | Phase 4 | Pending |
+| AGNT-01 | Phase 4 | Complete |
 | AGNT-02 | Phase 4 | Pending |
 | AGNT-03 | Phase 4 | Complete |
 
