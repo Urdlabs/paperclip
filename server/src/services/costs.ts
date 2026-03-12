@@ -175,6 +175,56 @@ export function costService(db: Db) {
       });
     },
 
+    timeSeries: async (companyId: string, range: CostDateRange, bucket: "day" | "week" = "day") => {
+      const conditions: ReturnType<typeof eq>[] = [eq(costEvents.companyId, companyId)];
+      if (range.from) conditions.push(gte(costEvents.occurredAt, range.from));
+      if (range.to) conditions.push(lte(costEvents.occurredAt, range.to));
+
+      const dateBucket = sql`date_trunc(${sql.raw(`'${bucket}'`)}, ${costEvents.occurredAt})`;
+
+      return db
+        .select({
+          date: sql<string>`${dateBucket}::text`.as("date"),
+          totalTokens: sql<number>`coalesce(sum(${costEvents.inputTokens} + ${costEvents.outputTokens}), 0)::int`,
+          costCents: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::int`,
+          inputTokens: sql<number>`coalesce(sum(${costEvents.inputTokens}), 0)::int`,
+          outputTokens: sql<number>`coalesce(sum(${costEvents.outputTokens}), 0)::int`,
+          cachedInputTokens: sql<number>`coalesce(sum(${costEvents.cachedInputTokens}), 0)::int`,
+        })
+        .from(costEvents)
+        .where(and(...conditions))
+        .groupBy(dateBucket)
+        .orderBy(dateBucket);
+    },
+
+    contextComposition: async (companyId: string, range?: CostDateRange) => {
+      const conditions: ReturnType<typeof eq>[] = [
+        eq(heartbeatRuns.companyId, companyId),
+        isNotNull(sql`${heartbeatRuns.usageJson} -> 'breakdown'`),
+      ];
+      if (range?.from) conditions.push(gte(heartbeatRuns.finishedAt, range.from));
+      if (range?.to) conditions.push(lte(heartbeatRuns.finishedAt, range.to));
+
+      const [result] = await db
+        .select({
+          systemPrompt: sql<number>`coalesce(sum((${heartbeatRuns.usageJson} -> 'breakdown' ->> 'systemPrompt')::int), 0)::int`,
+          skillsTools: sql<number>`coalesce(sum((${heartbeatRuns.usageJson} -> 'breakdown' ->> 'skillsTools')::int), 0)::int`,
+          issueContext: sql<number>`coalesce(sum((${heartbeatRuns.usageJson} -> 'breakdown' ->> 'issueContext')::int), 0)::int`,
+          fileContent: sql<number>`coalesce(sum((${heartbeatRuns.usageJson} -> 'breakdown' ->> 'fileContent')::int), 0)::int`,
+          history: sql<number>`coalesce(sum((${heartbeatRuns.usageJson} -> 'breakdown' ->> 'history')::int), 0)::int`,
+        })
+        .from(heartbeatRuns)
+        .where(and(...conditions));
+
+      return {
+        systemPrompt: Number(result.systemPrompt),
+        skillsTools: Number(result.skillsTools),
+        issueContext: Number(result.issueContext),
+        fileContent: Number(result.fileContent),
+        history: Number(result.history),
+      };
+    },
+
     byProject: async (companyId: string, range?: CostDateRange) => {
       const issueIdAsText = sql<string>`${issues.id}::text`;
       const runProjectLinks = db

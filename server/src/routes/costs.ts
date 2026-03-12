@@ -62,6 +62,23 @@ export function costRoutes(db: Db) {
     res.json(rows);
   });
 
+  router.get("/companies/:companyId/costs/time-series", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const range = parseDateRange(req.query);
+    const bucket = (req.query.bucket as string) === "week" ? "week" : "day";
+    const data = await costs.timeSeries(companyId, range ?? {}, bucket);
+    res.json(data);
+  });
+
+  router.get("/companies/:companyId/costs/context-composition", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const range = parseDateRange(req.query);
+    const data = await costs.contextComposition(companyId, range);
+    res.json(data);
+  });
+
   router.get("/companies/:companyId/costs/by-project", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);

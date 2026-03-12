@@ -67,6 +67,10 @@ export const queryKeys = {
     ["activity", companyId, filters ?? {}] as const,
   costs: (companyId: string, from?: string, to?: string) =>
     ["costs", companyId, from, to] as const,
+  costsTimeSeries: (companyId: string, from?: string, to?: string, bucket?: string) =>
+    ["costs-time-series", companyId, from, to, bucket] as const,
+  costsContextComposition: (companyId: string, from?: string, to?: string) =>
+    ["costs-context-composition", companyId, from, to] as const,
   heartbeats: (companyId: string, agentId?: string) =>
     ["heartbeats", companyId, agentId] as const,
   liveUsage: (runId: string) => ["live-usage", runId] as const,
