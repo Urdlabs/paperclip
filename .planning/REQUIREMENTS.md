@@ -24,9 +24,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Notifications
 
-- [ ] **NOTF-01**: Outgoing webhook system allows users to configure arbitrary HTTP endpoints that receive structured event payloads
-- [ ] **NOTF-02**: Run failure alerting pushes notifications when agent runs fail or error, via configured webhook endpoints
-- [ ] **NOTF-03**: Webhook event types include: run.completed, run.failed, run.started, approval.requested, issue.created, issue.updated
+- [x] **NOTF-01**: Outgoing webhook system allows users to configure arbitrary HTTP endpoints that receive structured event payloads
+- [x] **NOTF-02**: Run failure alerting pushes notifications when agent runs fail or error, via configured webhook endpoints
+- [x] **NOTF-03**: Webhook event types include: run.completed, run.failed, run.started, approval.requested, issue.created, issue.updated
 
 ### Monitoring UX
 
@@ -94,9 +94,9 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | TOPT-03 | Phase 2 | Complete |
 | TOPT-04 | Phase 2 | Complete |
 | TOPT-05 | Phase 2 | Complete |
-| NOTF-01 | Phase 4 | Pending |
-| NOTF-02 | Phase 4 | Pending |
-| NOTF-03 | Phase 4 | Pending |
+| NOTF-01 | Phase 4 | Complete |
+| NOTF-02 | Phase 4 | Complete |
+| NOTF-03 | Phase 4 | Complete |
 | MNTR-01 | Phase 3 | Complete |
 | MNTR-02 | Phase 3 | Complete |
 | MNTR-03 | Phase 3 | Complete |
