@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Token Analytics Foundation** - Instrument token consumption per run with cost attribution and real-time visibility
 - [x] **Phase 2: Context Optimization Pipeline** - Reduce agent token consumption through serialization, compression, caching, and budgets (completed 2026-03-11)
 - [x] **Phase 3: Observability & Monitoring UX** - Trace visualization, filtered activity feeds, and analytics dashboards (completed 2026-03-12)
-- [ ] **Phase 4: Notifications & Agent Capabilities** - Outgoing webhooks, failure alerting, task decomposition, skills, and code review workflows
+- [x] **Phase 4: Notifications & Agent Capabilities** - Outgoing webhooks, failure alerting, task decomposition, skills, and code review workflows (completed 2026-03-12)
 
 ## Phase Details
 
@@ -77,14 +77,14 @@ Plans:
   3. An operator can break a complex issue into subtasks with parent-child relationships and dependency ordering, and agents process subtasks in the correct order
   4. An operator can assign a skill profile (refactor, test-writer, reviewer, debugger) to an agent, and the agent's prompt and behavior change accordingly
   5. A code review workflow exists where review-assigned agents receive PR diffs, produce structured feedback, and post review comments to the PR
-**Plans:** 5 plans
+**Plans:** 5/5 plans complete
 
 Plans:
-- [ ] 04-01-PLAN.md -- Webhook system: DB schema, service with Standard Webhooks signing, event dispatcher bridge, retry queue, REST API
-- [ ] 04-02-PLAN.md -- Task decomposition: issue_dependencies schema, Kahn's algorithm dependency graph, subtask CRUD routes
-- [ ] 04-03-PLAN.md -- Skill profiles: DB schema, 6 predefined profiles, pipeline processor, heartbeat integration, REST API
-- [ ] 04-04-PLAN.md -- Code review: ReviewProvider interface, GitHub implementation, review orchestration, PR trigger extension
-- [ ] 04-05-PLAN.md -- UI: webhook management in Company Settings, subtask tree on issue detail, skill profile selector on agent detail
+- [x] 04-01-PLAN.md -- Webhook system: DB schema, service with Standard Webhooks signing, event dispatcher bridge, retry queue, REST API
+- [x] 04-02-PLAN.md -- Task decomposition: issue_dependencies schema, Kahn's algorithm dependency graph, subtask CRUD routes
+- [x] 04-03-PLAN.md -- Skill profiles: DB schema, 6 predefined profiles, pipeline processor, heartbeat integration, REST API
+- [x] 04-04-PLAN.md -- Code review: ReviewProvider interface, GitHub implementation, review orchestration, PR trigger extension
+- [x] 04-05-PLAN.md -- UI: webhook management in Company Settings, subtask tree on issue detail, skill profile selector on agent detail
 
 ## Progress
 
@@ -96,4 +96,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Token Analytics Foundation | 3/3 | Complete | 2026-03-10 |
 | 2. Context Optimization Pipeline | 3/3 | Complete   | 2026-03-11 |
 | 3. Observability & Monitoring UX | 3/3 | Complete | 2026-03-12 |
-| 4. Notifications & Agent Capabilities | 0/5 | Planning complete | - |
+| 4. Notifications & Agent Capabilities | 5/5 | Complete | 2026-03-12 |
