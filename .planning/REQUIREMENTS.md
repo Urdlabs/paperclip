@@ -32,7 +32,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **MNTR-01**: Trace visualization shows structured execution path (prompt → tool calls → responses → decisions) with timing and nesting, similar to Langfuse traces
 - [x] **MNTR-02**: Filtered activity feeds allow filtering by agent, project, event type, and severity on the activity page
-- [ ] **MNTR-03**: Token analytics dashboard with charts for token usage trends, cost per agent, cost per project, and context composition breakdown (research: Builderz Mission Control for UX patterns)
+- [x] **MNTR-03**: Token analytics dashboard with charts for token usage trends, cost per agent, cost per project, and context composition breakdown (research: Builderz Mission Control for UX patterns)
 
 ### Agent Capabilities
 
@@ -99,7 +99,7 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | NOTF-03 | Phase 4 | Pending |
 | MNTR-01 | Phase 3 | Complete |
 | MNTR-02 | Phase 3 | Complete |
-| MNTR-03 | Phase 3 | Pending |
+| MNTR-03 | Phase 3 | Complete |
 | AGNT-01 | Phase 4 | Pending |
 | AGNT-02 | Phase 4 | Pending |
 | AGNT-03 | Phase 4 | Pending |
