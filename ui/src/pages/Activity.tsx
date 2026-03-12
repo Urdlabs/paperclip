@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { activityApi } from "../api/activity";
 import { agentsApi } from "../api/agents";
@@ -8,31 +8,42 @@ import { goalsApi } from "../api/goals";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
+import { deriveSeverity } from "../lib/severity";
 import { EmptyState } from "../components/EmptyState";
 import { ActivityRow } from "../components/ActivityRow";
 import { PageSkeleton } from "../components/PageSkeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ActivityFilterBar, useActivityFilters } from "../components/ActivityFilterBar";
 import { History } from "lucide-react";
 import type { Agent } from "@paperclipai/shared";
+
+const SEVERITY_DOT_COLORS: Record<string, string> = {
+  info: "bg-emerald-500",
+  warning: "bg-yellow-500",
+  error: "bg-red-500",
+};
 
 export function Activity() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
-  const [filter, setFilter] = useState("all");
+  const { filters, hasActiveFilters } = useActivityFilters();
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Activity" }]);
   }, [setBreadcrumbs]);
 
+  const filtersObj = useMemo<Record<string, string | undefined>>(
+    () => ({
+      agentId: filters.agentId,
+      projectId: filters.projectId,
+      entityType: filters.entityType,
+      severity: filters.severity,
+    }),
+    [filters],
+  );
+
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.activity(selectedCompanyId!),
-    queryFn: () => activityApi.list(selectedCompanyId!),
+    queryKey: queryKeys.activity(selectedCompanyId!, filtersObj),
+    queryFn: () => activityApi.list(selectedCompanyId!, filters),
     enabled: !!selectedCompanyId,
   });
 
@@ -81,6 +92,23 @@ export function Activity() {
     return map;
   }, [issues]);
 
+  // Derive unique entity types from current data for the type filter dropdown
+  const entityTypes = useMemo(() => {
+    if (!data) return [];
+    return [...new Set(data.map((e) => e.entityType))].sort();
+  }, [data]);
+
+  // Build agent/project lists for filter dropdowns
+  const agentOptions = useMemo(
+    () => (agents ?? []).map((a) => ({ id: a.id, name: a.name })),
+    [agents],
+  );
+
+  const projectOptions = useMemo(
+    () => (projects ?? []).map((p) => ({ id: p.id, name: p.name })),
+    [projects],
+  );
+
   if (!selectedCompanyId) {
     return <EmptyState icon={History} message="Select a company to view activity." />;
   }
@@ -89,51 +117,53 @@ export function Activity() {
     return <PageSkeleton variant="list" />;
   }
 
-  const filtered =
-    data && filter !== "all"
-      ? data.filter((e) => e.entityType === filter)
-      : data;
-
-  const entityTypes = data
-    ? [...new Set(data.map((e) => e.entityType))].sort()
-    : [];
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-[140px] h-8 text-xs">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            {entityTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <ActivityFilterBar
+        agents={agentOptions}
+        projects={projectOptions}
+        entityTypes={entityTypes}
+      />
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
-      {filtered && filtered.length === 0 && (
-        <EmptyState icon={History} message="No activity yet." />
+      {data && data.length === 0 && (
+        <EmptyState
+          icon={History}
+          message={hasActiveFilters ? "No activity matches the current filters." : "No activity yet."}
+        />
       )}
 
-      {filtered && filtered.length > 0 && (
-        <div className="border border-border divide-y divide-border">
-          {filtered.map((event) => (
-            <ActivityRow
-              key={event.id}
-              event={event}
-              agentMap={agentMap}
-              entityNameMap={entityNameMap}
-              entityTitleMap={entityTitleMap}
-            />
-          ))}
-        </div>
+      {data && data.length > 0 && (
+        <>
+          <div className="border border-border divide-y divide-border">
+            {data.map((event) => {
+              const severity = deriveSeverity(event.action);
+              const dotColor = SEVERITY_DOT_COLORS[severity] ?? SEVERITY_DOT_COLORS.info;
+              return (
+                <div key={event.id} className="flex items-center">
+                  <div className="pl-3 shrink-0">
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${dotColor}`}
+                      title={severity}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <ActivityRow
+                      event={event}
+                      agentMap={agentMap}
+                      entityNameMap={entityNameMap}
+                      entityTitleMap={entityTitleMap}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {data.length >= 200 && (
+            <p className="text-xs text-muted-foreground text-center">Showing first 200 events</p>
+          )}
+        </>
       )}
     </div>
   );

@@ -120,12 +120,30 @@ import { EntityRow } from "@/components/EntityRow";
 import { EmptyState } from "@/components/EmptyState";
 import { MetricCard } from "@/components/MetricCard";
 import { FilterBar, type FilterValue } from "@/components/FilterBar";
+import { ActivityFilterBar } from "@/components/ActivityFilterBar";
 import { InlineEditor } from "@/components/InlineEditor";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Identity } from "@/components/Identity";
 import { ContextUtilizationBar } from "@/components/ContextUtilizationBar";
 import { BudgetBar } from "@/components/BudgetBar";
 import { TokenBreakdown } from "@/components/TokenBreakdown";
+import { TraceView } from "@/components/TraceView";
+import type { TranscriptEntry } from "@paperclipai/adapter-utils";
+
+/* ------------------------------------------------------------------ */
+/*  Sample trace data for design guide                                 */
+/* ------------------------------------------------------------------ */
+
+const sampleTraceData: TranscriptEntry[] = [
+  { kind: "init", ts: "2026-01-15T10:00:00.000Z", model: "claude-3.5-sonnet", sessionId: "sess-demo-1" },
+  { kind: "assistant", ts: "2026-01-15T10:00:01.200Z", text: "I'll read the configuration file and then update the database schema based on the requirements." },
+  { kind: "tool_call", ts: "2026-01-15T10:00:02.500Z", name: "read_file", input: { path: "/app/config.json" } },
+  { kind: "tool_result", ts: "2026-01-15T10:00:03.100Z", toolUseId: "tu-1", content: '{ "database": { "host": "localhost", "port": 5432 } }', isError: false },
+  { kind: "tool_call", ts: "2026-01-15T10:00:04.000Z", name: "write_file", input: { path: "/app/schema.sql", content: "CREATE TABLE users (...);" } },
+  { kind: "tool_result", ts: "2026-01-15T10:00:04.800Z", toolUseId: "tu-2", content: "File written successfully", isError: false },
+  { kind: "thinking", ts: "2026-01-15T10:00:05.500Z", text: "The schema has been updated. Let me verify the changes compile correctly." },
+  { kind: "result", ts: "2026-01-15T10:00:07.000Z", text: "Schema updated successfully", inputTokens: 2450, outputTokens: 380, cachedTokens: 1200, costUsd: 0.0042, subtype: "end_turn", isError: false, errors: [] },
+];
 
 /* ------------------------------------------------------------------ */
 /*  Section wrapper                                                    */
@@ -911,6 +929,30 @@ export function DesignGuide() {
       </Section>
 
       {/* ============================================================ */}
+      {/*  ACTIVITY FILTER BAR                                          */}
+      {/* ============================================================ */}
+      <Section title="Activity Filter Bar">
+        <SubSection title="Multi-filter bar with URL param sync">
+          <p className="text-xs text-muted-foreground mb-2">
+            Horizontal filter bar for the Activity page. Supports Agent, Project, Event Type, and Severity filters.
+            Filter state is synced to URL query params for shareability. Active filters appear as removable chips.
+          </p>
+          <ActivityFilterBar
+            agents={[
+              { id: "agent-1", name: "CEO Agent" },
+              { id: "agent-2", name: "Developer Agent" },
+              { id: "agent-3", name: "QA Agent" },
+            ]}
+            projects={[
+              { id: "proj-1", name: "Backend API" },
+              { id: "proj-2", name: "Mobile App" },
+            ]}
+            entityTypes={["issue", "agent", "project", "heartbeat_run", "cost_event"]}
+          />
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
       {/*  AVATARS                                                      */}
       {/* ============================================================ */}
       <Section title="Avatars">
@@ -1356,6 +1398,22 @@ export function DesignGuide() {
             );
           })}
         </div>
+      </Section>
+
+      {/* ============================================================ */}
+      {/*  TRACE VIEW                                                    */}
+      {/* ============================================================ */}
+      <Section title="Trace View">
+        <SubSection title="Execution Trace">
+          <p className="text-sm text-muted-foreground">
+            Nested collapsible tree view showing agent execution path with timing, token counts,
+            and color-coded node types. Click a node to expand its content.
+          </p>
+          <TraceView transcript={sampleTraceData} />
+        </SubSection>
+        <SubSection title="Empty State">
+          <TraceView transcript={[]} />
+        </SubSection>
       </Section>
 
       {/* ============================================================ */}
