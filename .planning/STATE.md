@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Token Optimization & Observability
-status: completed
-stopped_at: Milestone v1.0 archived and tagged
-last_updated: "2026-03-12T17:00:00.000Z"
-last_activity: 2026-03-12 -- Milestone v1.0 complete and archived
+milestone: v1.1
+milestone_name: Upstream Sync & Continuous Integration
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-12T18:00:00.000Z"
+last_activity: 2026-03-12 -- Milestone v1.1 started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,12 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Agents that do more with less -- smarter context, lower cost, better results
-**Current focus:** Planning next milestone
+**Current focus:** Milestone v1.1 — Upstream Sync & Continuous Integration
 
 ## Current Position
 
-Milestone v1.0 complete and archived.
-Next: `/gsd:new-milestone` to start v1.1 planning.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-12 — Milestone v1.1 started
 
 ## Performance Metrics
 
@@ -52,5 +54,5 @@ None active.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Milestone v1.0 archived
+Stopped at: Milestone v1.1 started — defining requirements
 Resume file: None

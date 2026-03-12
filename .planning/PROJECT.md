@@ -40,6 +40,12 @@ Agents that do more with less — smarter context management, lower token cost, 
 
 ### Active
 
+- [ ] Upstream sync — merge 226 upstream commits into fork safely
+- [ ] Continuous sync automation — GitHub Action to auto-open PR on upstream changes
+- [ ] Post-merge verification — ensure all v1.0 features survive upstream merge
+
+### Future
+
 - [ ] Model routing by task complexity — cheaper models for simple tasks
 - [ ] Slack integration (bidirectional) — notifications and commands
 - [ ] Linear/Jira bidirectional issue sync
@@ -58,11 +64,22 @@ Agents that do more with less — smarter context management, lower token cost, 
 - Plugin marketplace — adapter system is the extension point
 - Upstream PR splitting — not the current focus
 
+## Current Milestone: v1.1 Upstream Sync & Continuous Integration
+
+**Goal:** Safely merge 226 upstream commits into our fork and establish automated continuous sync so community features flow in without manual effort.
+
+**Target features:**
+- Incremental upstream merge (chunked by area, tested after each batch)
+- GitHub Action for automated sync PRs when upstream has new commits
+- Full v1.0 feature verification after merge
+
 ## Context
 
 Shipped v1.0 with 71,350 LOC TypeScript across pnpm monorepo: server (Express 5), UI (React 19 + TanStack Query), CLI (Commander), shared packages, adapter plugins. PostgreSQL 17 via Drizzle ORM. 411 tests passing (374 server, 37 UI).
 
 v1.0 delivered token analytics + optimization pipeline + observability dashboards + webhooks + task decomposition + skill profiles + code review in 3 days across 4 phases and 14 plans.
+
+Fork is 226 commits behind upstream/master and 119 ahead. Diverged at commit c674462 (PR #238). Upstream has added onboarding wizard, instance heartbeat settings sidebar, Gemini adapter Docker fix, max turns increase to 300, and CI improvements.
 
 ## Constraints
 
@@ -85,5 +102,8 @@ v1.0 delivered token analytics + optimization pipeline + observability dashboard
 | ReviewProvider abstraction | Extensible to GitLab/Bitbucket without core changes | ✓ Good |
 | Recharts for analytics | Lightweight, React-native, sufficient for dashboard needs | ✓ Good |
 
+| Incremental merge over big-bang rebase | Safer conflict resolution, easier rollback, preserves our commit history | — Pending |
+| GitHub Action for ongoing sync | Eliminates manual merge drift, catches conflicts early | — Pending |
+
 ---
-*Last updated: 2026-03-12 after v1.0 milestone*
+*Last updated: 2026-03-12 after v1.1 milestone start*
