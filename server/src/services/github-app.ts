@@ -10,7 +10,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, chmodSync } from "n
 import path from "node:path";
 import { eq, or, isNull, and } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import { githubApps, githubAppInstallations, projectWorkspaces, projects, issues } from "@paperclipai/db";
+import { githubApps, githubAppInstallations, projectWorkspaces, projects, issues, agents } from "@paperclipai/db";
 import type { GitHubAppConfig, GitHubAppInstallation, GitHubAppStatus } from "@paperclipai/shared";
 import { logger as rootLogger } from "../middleware/logger.js";
 import { issueService } from "./issues.js";
@@ -696,6 +696,10 @@ export function githubAppService(db: Db) {
       html_url: string;
       title: string;
       body?: string | null;
+      head?: { sha?: string; ref?: string };
+      base?: { sha?: string; ref?: string };
+      number?: number;
+      diff_url?: string;
     };
     const externalUrl = pr.html_url;
 
@@ -705,13 +709,84 @@ export function githubAppService(db: Db) {
       return;
     }
 
-    const description = `Pull request: ${externalUrl}\n\n${truncate(pr.body, 4000)}`;
+    // Build description with PR metadata for review context
+    const prMetadata = [
+      `Pull request: ${externalUrl}`,
+      "",
+      truncate(pr.body, 4000),
+      "",
+      "---",
+      `PR #${pr.number ?? ""}`,
+      `Head SHA: ${pr.head?.sha ?? "unknown"}`,
+      `Base SHA: ${pr.base?.sha ?? "unknown"}`,
+      `Head ref: ${pr.head?.ref ?? "unknown"}`,
+      `Base ref: ${pr.base?.ref ?? "unknown"}`,
+    ].join("\n");
+
     const issue = await createPaperclipIssue(companyId, project, {
       title: `PR: ${pr.title}`,
-      description,
+      description: prMetadata,
       externalUrl,
     });
     wakeAgent(project.leadAgentId!, "github_pr_opened", issue.id);
+
+    // Check if any agent in the company has a "reviewer" skill profile configured.
+    // If so, create a separate review issue assigned to that agent.
+    try {
+      const companyAgents = await db
+        .select()
+        .from(agents)
+        .where(eq(agents.companyId, companyId));
+
+      const reviewAgent = companyAgents.find((a) => {
+        const rc = a.runtimeConfig as Record<string, unknown> | null;
+        if (!rc) return false;
+        const profileSlug = rc.skillProfileSlug as string | undefined;
+        const profileId = rc.skillProfileId as string | undefined;
+        return profileSlug === "reviewer" || profileId != null;
+      });
+
+      if (reviewAgent) {
+        // Only create a review issue if the review agent is different from the lead
+        // or if we want the same agent to have a separate review task
+        const reviewDescription = [
+          `Code review requested for: ${externalUrl}`,
+          "",
+          truncate(pr.body, 4000),
+          "",
+          "---",
+          "Type: code-review",
+          `PR #${pr.number ?? ""}`,
+          `Head SHA: ${pr.head?.sha ?? "unknown"}`,
+          `Base SHA: ${pr.base?.sha ?? "unknown"}`,
+          `Head ref: ${pr.head?.ref ?? "unknown"}`,
+          `Base ref: ${pr.base?.ref ?? "unknown"}`,
+        ].join("\n");
+
+        const reviewIssue = await issueSvc.create(companyId, {
+          title: `Review: ${pr.title}`,
+          description: reviewDescription,
+          externalUrl,
+          projectId: project.id,
+          status: "todo",
+          assigneeAgentId: reviewAgent.id,
+        });
+
+        logger.info(
+          {
+            reviewIssueId: reviewIssue.id,
+            reviewAgentId: reviewAgent.id,
+            prUrl: externalUrl,
+          },
+          "Created review issue for PR",
+        );
+
+        wakeAgent(reviewAgent.id, "github_pr_review_requested", reviewIssue.id);
+      }
+    } catch (err) {
+      // Review issue creation is best-effort; don't fail the main PR handling
+      logger.warn({ err, externalUrl }, "Failed to create review issue for PR");
+    }
   }
 
   async function handleGitHubIssueComment(

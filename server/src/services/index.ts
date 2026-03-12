@@ -22,3 +22,7 @@ export { createStorageServiceFromConfig, getStorageService } from "../storage/in
 export { githubAppService, type GitHubAppServiceInstance } from "./github-app.js";
 export { createUsageTracker } from "./claude-usage-streaming.js";
 export { resolveBudget, isBudgetExceeded, isWindDownThreshold, type BudgetConfig } from "./budget.js";
+export { webhookService } from "./webhooks.js";
+export { startWebhookDispatcher, mapLiveEventToWebhookEvent } from "./webhook-dispatcher.js";
+export { codeReviewService, type CodeReviewServiceInstance } from "./code-review.js";
+export { topologicalSort, validateNoCycle, getExecutionWaves } from "./dependency-graph.js";
