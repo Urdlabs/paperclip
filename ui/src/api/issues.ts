@@ -1,4 +1,4 @@
-import type { Approval, Issue, IssueAttachment, IssueComment, IssueLabel } from "@paperclipai/shared";
+import type { Approval, Issue, IssueAttachment, IssueComment, IssueLabel, SubtaskWithDependencies } from "@paperclipai/shared";
 import { api } from "./client";
 
 export const issuesApi = {
@@ -76,7 +76,7 @@ export const issuesApi = {
 
   // Subtask & dependency endpoints
   listSubtasks: (companyId: string, issueId: string) =>
-    api.get<Issue[]>(`/companies/${companyId}/issues/${issueId}/subtasks`),
+    api.get<SubtaskWithDependencies[]>(`/companies/${companyId}/issues/${issueId}/subtasks`),
 
   createSubtask: (companyId: string, issueId: string, data: { title: string; description?: string; priority?: string }) =>
     api.post<Issue>(`/companies/${companyId}/issues/${issueId}/subtasks`, data),

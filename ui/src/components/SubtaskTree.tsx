@@ -22,7 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ArrowRight, GitBranch, Link2, Plus, X } from "lucide-react";
-import type { Issue } from "@paperclipai/shared";
+import type { Issue, SubtaskWithDependencies } from "@paperclipai/shared";
 
 export function SubtaskTree({
   companyId,
@@ -86,7 +86,7 @@ export function SubtaskTree({
   }
 
   // Build a lookup map for subtask titles by id
-  const subtaskMap = new Map<string, Issue>();
+  const subtaskMap = new Map<string, SubtaskWithDependencies>();
   for (const s of subtasks ?? []) {
     subtaskMap.set(s.id, s);
   }
@@ -102,9 +102,9 @@ export function SubtaskTree({
       ) : (
         <div className="border border-border rounded-lg divide-y divide-border">
           {subtasks.map((subtask) => {
-            const deps: Issue[] = (subtask.dependsOn ?? [])
-              .map((dep: { dependsOnId: string }) => subtaskMap.get(dep.dependsOnId))
-              .filter(Boolean) as Issue[];
+            const deps: SubtaskWithDependencies[] = (subtask.dependsOn ?? [])
+              .map((depId: string) => subtaskMap.get(depId))
+              .filter(Boolean) as SubtaskWithDependencies[];
 
             return (
               <div key={subtask.id} className="px-3 py-2 space-y-1.5">
