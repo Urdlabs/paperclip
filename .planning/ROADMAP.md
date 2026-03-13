@@ -84,10 +84,11 @@ Plans:
   3. The sync workflow auto-regenerates `pnpm-lock.yaml` so lockfile conflicts never require manual resolution
   4. `git rerere` is enabled in the repo so previously resolved conflict patterns are automatically reapplied in future syncs
   5. README displays a sync health badge showing how many commits the fork is behind upstream
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 08-01: TBD
+- [ ] 08-01-PLAN.md -- Core upstream sync workflow + pr-policy lockfile exemption (SYNC-01, SYNC-02, SYNC-03, SYNC-04, SYNC-05)
+- [ ] 08-02-PLAN.md -- Sync status badge JSON + README badge (SYNC-06)
 
 ## Progress
 
@@ -102,4 +103,4 @@ Plans:
 | 5. Merge Preparation | v1.1 | 3/3 | Complete | 2026-03-12 |
 | 6. Foundation & Database Merge | v1.1 | 1/1 | Complete | 2026-03-12 |
 | 7. Server, UI & Full Verification | 3/3 | Complete   | 2026-03-13 | - |
-| 8. Continuous Sync Automation | v1.1 | 0/? | Not started | - |
+| 8. Continuous Sync Automation | v1.1 | 0/2 | Not started | - |
