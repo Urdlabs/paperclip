@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Upstream Sync & Continuous Integration
 status: completed
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-13T15:58:49.721Z"
-last_activity: 2026-03-13 -- Sync status badge with shields.io endpoint (phase 8, plan 2)
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-13T16:15:05.922Z"
+last_activity: 2026-03-13 -- Effort estimation in upstream sync workflow (phase 8, plan 3)
 progress:
   total_phases: 4
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
-  percent: 96
+  total_plans: 10
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 8 of 8 (Continuous Sync Automation)
-Plan: 2 of 2 -- COMPLETE
-Status: Phase 8 plan 2 complete -- sync status badge added to README
-Last activity: 2026-03-13 -- Sync status badge with shields.io endpoint (phase 8, plan 2)
+Plan: 3 of 3 -- COMPLETE
+Status: Phase 8 plan 3 complete -- effort estimation added to sync PR/issue bodies (SYNC-03 gap closed)
+Last activity: 2026-03-13 -- Effort estimation in upstream sync workflow (phase 8, plan 3)
 
-Progress: [██████████] 96% (v1.0 complete, phases 5-8 in progress)
+Progress: [██████████] 100% (v1.0 complete, v1.1 complete)
 
 ## Performance Metrics
 
@@ -72,6 +72,12 @@ Progress: [██████████] 96% (v1.0 complete, phases 5-8 in pro
 - Duration: 1 min
 - Created sync-status.json badge endpoint, added upstream sync badge to README
 
+**v1.1 Phase 8, Plan 3 (gap closure):**
+- 1 task, 1 commit, 1 file changed (+47 lines)
+- Duration: 2 min
+- Added classify_effort() and effort estimation lines to sync PR and conflict issue bodies
+- SYNC-03 gap closed
+
 ## Accumulated Context
 
 ### Decisions
@@ -96,6 +102,8 @@ Recent decisions affecting current work:
 - [Phase 08-01]: Single-job sequential steps workflow keeps rerere cache across step boundaries
 - [Phase 08-01]: classify_area() duplicated in PR/issue steps (no shared functions across GHA steps)
 - [Phase 08]: Badge points to fork repo (Urdlabs/paperclip) not upstream, since workflow and JSON live on the fork
+- [Phase 08]: [Phase 08-03]: Effort heuristic uses file count thresholds (1-2/3-5/6+) plus migration type override for simple/moderate/complex classification
+- [Phase 08]: [Phase 08-03]: classify_effort() duplicated in both GHA steps (same pattern as classify_area())
 
 ### Pending Todos
 
@@ -107,6 +115,6 @@ None active.
 
 ## Session Continuity
 
-Last session: 2026-03-13T15:58:49.718Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-13T16:15:05.920Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
