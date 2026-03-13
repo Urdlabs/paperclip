@@ -1,36 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Upstream Sync & Continuous Integration
-status: completed
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-03-13T16:19:05.941Z"
-last_activity: 2026-03-13 -- Effort estimation in upstream sync workflow (phase 8, plan 3)
+milestone: null
+milestone_name: null
+status: between_milestones
+stopped_at: v1.1 milestone complete
+last_updated: "2026-03-13T21:00:00.000Z"
+last_activity: 2026-03-13 -- v1.1 milestone completed and archived
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-12)
+See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Agents that do more with less -- smarter context, lower cost, better results
-**Current focus:** Phase 8 -- Continuous Sync Automation (v1.1)
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 8 of 8 (Continuous Sync Automation)
-Plan: 3 of 3 -- COMPLETE
-Status: Phase 8 plan 3 complete -- effort estimation added to sync PR/issue bodies (SYNC-03 gap closed)
-Last activity: 2026-03-13 -- Effort estimation in upstream sync workflow (phase 8, plan 3)
+Milestone: v1.1 complete, archived
+Status: Between milestones -- ready for /gsd:new-milestone
+Last activity: 2026-03-13 -- v1.1 milestone completed and archived
 
-Progress: [██████████] 100% (v1.0 complete, v1.1 complete)
+Progress: v1.0 + v1.1 shipped (8 phases, 24 plans across 2 milestones)
 
 ## Performance Metrics
 
@@ -39,71 +38,17 @@ Progress: [██████████] 100% (v1.0 complete, v1.1 complete)
 - Timeline: 3 days (2026-03-10 to 2026-03-12)
 - Tests: 411 passing (374 server, 37 UI)
 
-**v1.1 Phase 6:**
-- 1 plan, 1 merge commit, 277 files changed (+21,768 / -4,658 lines)
-- Duration: 16 min
-- Tests: 542 passing (3 upstream timeout failures pre-existing)
-
-**v1.1 Phase 7, Plan 1:**
-- 2 tasks, 2 commits, 6 files changed (+608 lines)
-- Duration: 6 min
-- Tests: 585 passing (542 existing + 22 new + 1 skipped, 3 timeout fixes)
-
-**v1.1 Phase 7, Plan 2:**
-- 2 tasks, 2 commits, 4 files created (+963 lines)
-- Duration: 7 min
-- Tests: 46 new integration tests (9 activity, 11 task decomposition, 15 skill profiles, 11 code review)
-
-**v1.1 Phase 7, Plan 3:**
-- 2 tasks, 2 commits, 4 files changed
-- Duration: 11 min
-- CI: 613 tests passing, zero type errors, all packages build
-- Docker: image builds, container healthy, /api/health responds ok
-- 3 auto-fixes: Dockerfile gemini-local, locale for embedded-postgres, orphan migrations
-
-**v1.1 Phase 8, Plan 1:**
-- 2 tasks, 2 commits, 2 files changed (+292 lines created, 1 line modified)
-- Duration: 2 min
-- Upstream sync workflow with rerere seeding, area-grouped PRs/issues, lockfile regen, status badge
-- PR policy updated with sync branch exemption
-
-**v1.1 Phase 8, Plan 2:**
-- 1 task, 1 commit, 2 files changed
-- Duration: 1 min
-- Created sync-status.json badge endpoint, added upstream sync badge to README
-
-**v1.1 Phase 8, Plan 3 (gap closure):**
-- 1 task, 1 commit, 1 file changed (+47 lines)
-- Duration: 2 min
-- Added classify_effort() and effort estimation lines to sync PR and conflict issue bodies
-- SYNC-03 gap closed
+**v1.1 Summary:**
+- 4 phases, 10 plans, 40 commits, 326 files changed (+29,570 / -4,732 lines)
+- Timeline: 2 days (2026-03-12 to 2026-03-13)
+- Tests: 613 passing (up from 411)
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Incremental merge over big-bang rebase (safer conflict resolution, preserves history)
-- GitHub Action for ongoing sync (eliminates manual drift)
-- All 16 conflicts resolved in single merge commit (git requirement)
-- Fork used as base for HARD conflicts, upstream layered on top
-- 3 EmbeddedPostgresCtor type fixes needed for upstream's initdbFlags usage
-- Used 15_000ms timeout for slow worktree tests (matching existing 20_000ms precedent)
-- Context pipeline tested as pure function (no route mocking needed)
-- Webhook tests mock svc.remove (not delete) matching actual route implementation
-- [Phase 07]: Used 15_000ms timeout for slow worktree tests (matching existing 20_000ms precedent)
-- [Phase 07-02]: vi.hoisted default mocks with createApp()-per-test avoids clearAllMocks issues with module-scoped service factories
-- [Phase 07-02]: Code review tested at service-level (pure function imports) not route-level
-- [Phase 07-03]: en_US.UTF-8 locale required in Docker for embedded-postgres library
-- [Phase 07-03]: Orphan migration files 0026/0027 removed (renumbered to 0031/0032 during merge)
-- [Phase 07-03]: Docker requires BETTER_AUTH_SECRET env var in authenticated deployment mode
-- [Phase 08-01]: Single-job sequential steps workflow keeps rerere cache across step boundaries
-- [Phase 08-01]: classify_area() duplicated in PR/issue steps (no shared functions across GHA steps)
-- [Phase 08]: Badge points to fork repo (Urdlabs/paperclip) not upstream, since workflow and JSON live on the fork
-- [Phase 08]: [Phase 08-03]: Effort heuristic uses file count thresholds (1-2/3-5/6+) plus migration type override for simple/moderate/complex classification
-- [Phase 08]: [Phase 08-03]: classify_effort() duplicated in both GHA steps (same pattern as classify_area())
+v1.0 and v1.1 decisions are archived. See RETROSPECTIVE.md for lessons learned.
 
 ### Pending Todos
 
@@ -115,6 +60,6 @@ None active.
 
 ## Session Continuity
 
-Last session: 2026-03-13T16:15:05.920Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-03-13T21:00:00.000Z
+Stopped at: v1.1 milestone complete
 Resume file: None

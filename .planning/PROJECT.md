@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A fork of Paperclip — an AI agent orchestration platform — with deep token optimization, observability, and extended agent capabilities. Paperclip manages autonomous coding agents (Claude, Codex, Cursor, etc.) through a heartbeat-driven execution loop, issue tracker, and project management board. This fork adds a context optimization pipeline that reduces token waste, live token analytics with cost attribution, trace visualization, webhook notifications, task decomposition with dependency graphs, agent skill profiles, and automated code review workflows.
+A fork of Paperclip — an AI agent orchestration platform — with deep token optimization, observability, extended agent capabilities, and automated upstream sync. Paperclip manages autonomous coding agents (Claude, Codex, Cursor, etc.) through a heartbeat-driven execution loop, issue tracker, and project management board. This fork adds a context optimization pipeline that reduces token waste, live token analytics with cost attribution, trace visualization, webhook notifications, task decomposition with dependency graphs, agent skill profiles, automated code review workflows, and a GitHub Action that continuously syncs upstream changes into the fork.
 
 ## Core Value
 
@@ -37,12 +37,14 @@ Agents that do more with less — smarter context management, lower token cost, 
 - ✓ Task decomposition with subtasks and dependency ordering — v1.0
 - ✓ Agent skill profiles shaping prompt and behavior — v1.0
 - ✓ Code review workflow with PR diffs and structured feedback — v1.0
+- ✓ Upstream merge — 226 upstream commits safely integrated with conflict map, migration renumbering, and rollback safety — v1.1
+- ✓ Post-merge verification — 613 tests passing, zero TypeScript errors, Docker healthy, all v1.0 features confirmed — v1.1
+- ✓ Automated upstream sync — GitHub Action with weekly cron, area-grouped PRs/issues, rerere seeding, lockfile regen — v1.1
+- ✓ Sync health badge — shields.io endpoint badge in README showing commits-behind count — v1.1
 
 ### Active
 
-- [ ] Upstream sync — merge 226 upstream commits into fork safely
-- [ ] Continuous sync automation — GitHub Action to auto-open PR on upstream changes
-- [ ] Post-merge verification — ensure all v1.0 features survive upstream merge
+(None — planning next milestone)
 
 ### Future
 
@@ -64,22 +66,17 @@ Agents that do more with less — smarter context management, lower token cost, 
 - Plugin marketplace — adapter system is the extension point
 - Upstream PR splitting — not the current focus
 
-## Current Milestone: v1.1 Upstream Sync & Continuous Integration
+## Current State
 
-**Goal:** Safely merge 226 upstream commits into our fork and establish automated continuous sync so community features flow in without manual effort.
-
-**Target features:**
-- Incremental upstream merge (chunked by area, tested after each batch)
-- GitHub Action for automated sync PRs when upstream has new commits
-- Full v1.0 feature verification after merge
+v1.0 + v1.1 shipped. Fork is fully synced with upstream (0 commits behind) and 119+ ahead. Automated weekly sync workflow ensures the fork never silently drifts again.
 
 ## Context
 
-Shipped v1.0 with 71,350 LOC TypeScript across pnpm monorepo: server (Express 5), UI (React 19 + TanStack Query), CLI (Commander), shared packages, adapter plugins. PostgreSQL 17 via Drizzle ORM. 411 tests passing (374 server, 37 UI).
+TypeScript monorepo with pnpm workspaces: server (Express 5), UI (React 19 + TanStack Query), CLI (Commander), shared packages, adapter plugins. PostgreSQL 17 via Drizzle ORM.
 
-v1.0 delivered token analytics + optimization pipeline + observability dashboards + webhooks + task decomposition + skill profiles + code review in 3 days across 4 phases and 14 plans.
+v1.0 delivered token analytics + optimization pipeline + observability dashboards + webhooks + task decomposition + skill profiles + code review in 3 days (4 phases, 14 plans).
 
-Fork is 226 commits behind upstream/master and 119 ahead. Diverged at commit c674462 (PR #238). Upstream has added onboarding wizard, instance heartbeat settings sidebar, Gemini adapter Docker fix, max turns increase to 300, and CI improvements.
+v1.1 merged 226 upstream commits (onboarding wizard, Gemini adapter, heartbeat settings, max turns 300, CI improvements), verified all v1.0 features survived, and established automated sync with GitHub Actions. 613 tests passing. 2 days (4 phases, 10 plans).
 
 ## Constraints
 
@@ -102,8 +99,10 @@ Fork is 226 commits behind upstream/master and 119 ahead. Diverged at commit c67
 | ReviewProvider abstraction | Extensible to GitLab/Bitbucket without core changes | ✓ Good |
 | Recharts for analytics | Lightweight, React-native, sufficient for dashboard needs | ✓ Good |
 
-| Incremental merge over big-bang rebase | Safer conflict resolution, easier rollback, preserves our commit history | — Pending |
-| GitHub Action for ongoing sync | Eliminates manual merge drift, catches conflicts early | — Pending |
+| Incremental merge over big-bang rebase | Safer conflict resolution, easier rollback, preserves our commit history | ✓ Good — 226 commits merged cleanly |
+| GitHub Action for ongoing sync | Eliminates manual merge drift, catches conflicts early | ✓ Good — weekly cron + manual dispatch |
+| git rerere for conflict replay | Auto-applies prior conflict resolutions in future syncs | ✓ Good — seeded from Phase 6 merge |
+| Single merge commit for all 16 conflicts | Git requires all conflicts resolved in one commit | ✓ Good — conflict map playbook worked |
 
 ---
-*Last updated: 2026-03-12 after v1.1 milestone start*
+*Last updated: 2026-03-13 after v1.1 milestone complete*
