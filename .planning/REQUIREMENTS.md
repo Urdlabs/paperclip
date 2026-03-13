@@ -16,7 +16,7 @@ Requirements for upstream sync and continuous integration. Each maps to roadmap 
 
 ### Incremental Merge
 
-- [ ] **MERGE-01**: Shared packages and DB layer merged first with CI verification passing
+- [x] **MERGE-01**: Shared packages and DB layer merged first with CI verification passing
 - [ ] **MERGE-02**: Server and adapter layers merged with CI verification passing
 - [ ] **MERGE-03**: UI and infrastructure layers merged with CI verification passing
 - [ ] **MERGE-04**: pnpm lockfile regenerated cleanly after each merge chunk
@@ -66,7 +66,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PREP-02 | Phase 5 | Pending |
 | PREP-03 | Phase 5 | Pending |
 | PREP-04 | Phase 5 | Pending |
-| MERGE-01 | Phase 6 | Pending |
+| MERGE-01 | Phase 6 | Complete |
 | MERGE-02 | Phase 7 | Pending |
 | MERGE-03 | Phase 7 | Pending |
 | MERGE-04 | Phase 7 | Pending |
