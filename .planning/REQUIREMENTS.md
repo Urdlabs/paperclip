@@ -31,11 +31,11 @@ Requirements for upstream sync and continuous integration. Each maps to roadmap 
 
 ### Continuous Sync Automation
 
-- [ ] **SYNC-01**: GitHub Action detects new upstream commits on a weekly schedule
-- [ ] **SYNC-02**: Sync PR is auto-created with upstream changelog grouped by area in PR body
-- [ ] **SYNC-03**: Sync PR includes conflict area categorization and estimated resolution effort
-- [ ] **SYNC-04**: Lockfile is auto-regenerated in the sync workflow (no manual lockfile conflicts)
-- [ ] **SYNC-05**: git rerere is enabled to auto-apply previous conflict resolutions
+- [x] **SYNC-01**: GitHub Action detects new upstream commits on a weekly schedule
+- [x] **SYNC-02**: Sync PR is auto-created with upstream changelog grouped by area in PR body
+- [x] **SYNC-03**: Sync PR includes conflict area categorization and estimated resolution effort
+- [x] **SYNC-04**: Lockfile is auto-regenerated in the sync workflow (no manual lockfile conflicts)
+- [x] **SYNC-05**: git rerere is enabled to auto-apply previous conflict resolutions
 - [x] **SYNC-06**: README displays sync health badge showing commits behind upstream
 
 ## Future Requirements
@@ -75,11 +75,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VERIFY-02 | Phase 7 | Complete |
 | VERIFY-03 | Phase 7 | Complete |
 | VERIFY-04 | Phase 7 | Complete |
-| SYNC-01 | Phase 8 | Pending |
-| SYNC-02 | Phase 8 | Pending |
-| SYNC-03 | Phase 8 | Pending |
-| SYNC-04 | Phase 8 | Pending |
-| SYNC-05 | Phase 8 | Pending |
+| SYNC-01 | Phase 8 | Complete |
+| SYNC-02 | Phase 8 | Complete |
+| SYNC-03 | Phase 8 | Complete |
+| SYNC-04 | Phase 8 | Complete |
+| SYNC-05 | Phase 8 | Complete |
 | SYNC-06 | Phase 8 | Complete |
 
 **Coverage:**
