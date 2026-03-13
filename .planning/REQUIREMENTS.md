@@ -17,16 +17,16 @@ Requirements for upstream sync and continuous integration. Each maps to roadmap 
 ### Incremental Merge
 
 - [x] **MERGE-01**: Shared packages and DB layer merged first with CI verification passing
-- [ ] **MERGE-02**: Server and adapter layers merged with CI verification passing
-- [ ] **MERGE-03**: UI and infrastructure layers merged with CI verification passing
-- [ ] **MERGE-04**: pnpm lockfile regenerated cleanly after each merge chunk
-- [ ] **MERGE-05**: All 226 upstream commits are merged into fork master via merge commits (not rebase)
+- [x] **MERGE-02**: Server and adapter layers merged with CI verification passing
+- [x] **MERGE-03**: UI and infrastructure layers merged with CI verification passing
+- [x] **MERGE-04**: pnpm lockfile regenerated cleanly after each merge chunk
+- [x] **MERGE-05**: All 226 upstream commits are merged into fork master via merge commits (not rebase)
 
 ### Post-Merge Verification
 
 - [x] **VERIFY-01**: Full test suite passes after merge (411+ tests)
-- [ ] **VERIFY-02**: TypeScript compilation succeeds with zero errors across all packages
-- [ ] **VERIFY-03**: Docker build completes successfully
+- [x] **VERIFY-02**: TypeScript compilation succeeds with zero errors across all packages
+- [x] **VERIFY-03**: Docker build completes successfully
 - [x] **VERIFY-04**: All v1.0 features verified working -- token analytics, context optimization, webhooks, traces, activity feeds, task decomposition, skill profiles, code review
 
 ### Continuous Sync Automation
@@ -67,13 +67,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PREP-03 | Phase 5 | Pending |
 | PREP-04 | Phase 5 | Pending |
 | MERGE-01 | Phase 6 | Complete |
-| MERGE-02 | Phase 7 | Pending |
-| MERGE-03 | Phase 7 | Pending |
-| MERGE-04 | Phase 7 | Pending |
-| MERGE-05 | Phase 7 | Pending |
+| MERGE-02 | Phase 7 | Complete |
+| MERGE-03 | Phase 7 | Complete |
+| MERGE-04 | Phase 7 | Complete |
+| MERGE-05 | Phase 7 | Complete |
 | VERIFY-01 | Phase 7 | Complete |
-| VERIFY-02 | Phase 7 | Pending |
-| VERIFY-03 | Phase 7 | Pending |
+| VERIFY-02 | Phase 7 | Complete |
+| VERIFY-03 | Phase 7 | Complete |
 | VERIFY-04 | Phase 7 | Complete |
 | SYNC-01 | Phase 8 | Pending |
 | SYNC-02 | Phase 8 | Pending |

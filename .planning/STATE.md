@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Upstream Sync & Continuous Integration
-status: completed
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-13T13:48:00Z"
-last_activity: 2026-03-13 -- Added 46 integration tests for v1.0 features 5-8 (phase 7, plan 2)
+status: verifying
+stopped_at: Completed 07-03-PLAN.md (Phase 7 complete)
+last_updated: "2026-03-13T14:43:37.526Z"
+last_activity: 2026-03-13 -- Full CI + Docker verification complete (phase 7, plan 3)
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
-  percent: 76
+  completed_plans: 7
+  percent: 88
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Agents that do more with less -- smarter context, lower cost, better results
-**Current focus:** Phase 7 -- Server & UI Full Verification (v1.1)
+**Current focus:** Phase 7 complete -- Server & UI Full Verification (v1.1)
 
 ## Current Position
 
-Phase: 7 of 8 (Server & UI Full Verification)
-Plan: 3 of 3
-Status: Plan 2 complete, continuing plan 3
-Last activity: 2026-03-13 -- Added 46 integration tests for v1.0 features 5-8 (phase 7, plan 2)
+Phase: 7 of 8 (Server & UI Full Verification) -- COMPLETE
+Plan: 3 of 3 -- COMPLETE
+Status: Phase 7 complete, all MERGE/VERIFY requirements closed
+Last activity: 2026-03-13 -- Full CI + Docker verification complete (phase 7, plan 3)
 
-Progress: [###############.....] 76% (v1.0 complete, phase 5-7.2 complete)
+Progress: [#################...] 88% (v1.0 complete, phases 5-7 complete)
 
 ## Performance Metrics
 
@@ -54,6 +54,13 @@ Progress: [###############.....] 76% (v1.0 complete, phase 5-7.2 complete)
 - Duration: 7 min
 - Tests: 46 new integration tests (9 activity, 11 task decomposition, 15 skill profiles, 11 code review)
 
+**v1.1 Phase 7, Plan 3:**
+- 2 tasks, 2 commits, 4 files changed
+- Duration: 11 min
+- CI: 613 tests passing, zero type errors, all packages build
+- Docker: image builds, container healthy, /api/health responds ok
+- 3 auto-fixes: Dockerfile gemini-local, locale for embedded-postgres, orphan migrations
+
 ## Accumulated Context
 
 ### Decisions
@@ -72,6 +79,9 @@ Recent decisions affecting current work:
 - [Phase 07]: Used 15_000ms timeout for slow worktree tests (matching existing 20_000ms precedent)
 - [Phase 07-02]: vi.hoisted default mocks with createApp()-per-test avoids clearAllMocks issues with module-scoped service factories
 - [Phase 07-02]: Code review tested at service-level (pure function imports) not route-level
+- [Phase 07-03]: en_US.UTF-8 locale required in Docker for embedded-postgres library
+- [Phase 07-03]: Orphan migration files 0026/0027 removed (renumbered to 0031/0032 during merge)
+- [Phase 07-03]: Docker requires BETTER_AUTH_SECRET env var in authenticated deployment mode
 
 ### Pending Todos
 
@@ -83,6 +93,6 @@ None active.
 
 ## Session Continuity
 
-Last session: 2026-03-13T13:48:00Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-13T14:43:37.524Z
+Stopped at: Completed 07-03-PLAN.md (Phase 7 complete)
 Resume file: None
