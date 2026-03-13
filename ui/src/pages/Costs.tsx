@@ -260,7 +260,7 @@ export function Costs() {
                                 <StatusBadge status="terminated" />
                               )}
                             </div>
-                            <div className="text-right shrink-0 ml-2">
+                            <div className="text-right shrink-0 ml-2 tabular-nums">
                               <span className="font-medium block">{formatCents(row.costCents)}</span>
                               <span className="text-xs text-muted-foreground block">
                                 in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
@@ -295,17 +295,12 @@ export function Costs() {
                         {data.byProject.map((row) => (
                           <div
                             key={row.projectId ?? "na"}
-                            className="flex items-start justify-between text-sm"
+                            className="flex items-center justify-between text-sm"
                           >
                             <span className="truncate">
                               {row.projectName ?? row.projectId ?? "Unattributed"}
                             </span>
-                            <div className="text-right shrink-0 ml-2">
-                              <span className="font-medium block">{formatCents(row.costCents)}</span>
-                              <span className="text-xs font-mono text-muted-foreground block">
-                                cached {formatTokens(row.cachedInputTokens)} ({((row.cachedInputTokens / Math.max(1, row.inputTokens)) * 100).toFixed(1)}% eff)
-                              </span>
-                            </div>
+                            <span className="font-medium tabular-nums">{formatCents(row.costCents)}</span>
                           </div>
                         ))}
                       </div>

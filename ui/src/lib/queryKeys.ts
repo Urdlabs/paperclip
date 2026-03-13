@@ -56,6 +56,9 @@ export const queryKeys = {
   auth: {
     session: ["auth", "session"] as const,
   },
+  instance: {
+    schedulerHeartbeats: ["instance", "scheduler-heartbeats"] as const,
+  },
   health: ["health"] as const,
   secrets: {
     list: (companyId: string) => ["secrets", companyId] as const,
@@ -74,6 +77,7 @@ export const queryKeys = {
   heartbeats: (companyId: string, agentId?: string) =>
     ["heartbeats", companyId, agentId] as const,
   liveUsage: (runId: string) => ["live-usage", runId] as const,
+  runDetail: (runId: string) => ["heartbeat-run", runId] as const,
   liveRuns: (companyId: string) => ["live-runs", companyId] as const,
   runIssues: (runId: string) => ["run-issues", runId] as const,
   org: (companyId: string) => ["org", companyId] as const,
