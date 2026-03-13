@@ -9,10 +9,10 @@ Requirements for upstream sync and continuous integration. Each maps to roadmap 
 
 ### Merge Preparation
 
-- [ ] **PREP-01**: All upstream conflicts are mapped and categorized by area (DB, server, UI, infra) before merge begins
-- [ ] **PREP-02**: Fork state is tagged as rollback point before any merge work
-- [ ] **PREP-03**: Drizzle migration collision is resolved -- fork migrations renumbered to avoid overlap with upstream 0026-0027
-- [ ] **PREP-04**: Fork feature manifest documents all v1.0-specific code paths for post-merge verification
+- [x] **PREP-01**: All upstream conflicts are mapped and categorized by area (DB, server, UI, infra) before merge begins
+- [x] **PREP-02**: Fork state is tagged as rollback point before any merge work
+- [x] **PREP-03**: Drizzle migration collision is resolved -- fork migrations renumbered to avoid overlap with upstream 0026-0027
+- [x] **PREP-04**: Fork feature manifest documents all v1.0-specific code paths for post-merge verification
 
 ### Incremental Merge
 
@@ -62,10 +62,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PREP-01 | Phase 5 | Pending |
-| PREP-02 | Phase 5 | Pending |
-| PREP-03 | Phase 5 | Pending |
-| PREP-04 | Phase 5 | Pending |
+| PREP-01 | Phase 5 | Complete |
+| PREP-02 | Phase 5 | Complete |
+| PREP-03 | Phase 5 | Complete |
+| PREP-04 | Phase 5 | Complete |
 | MERGE-01 | Phase 6 | Complete |
 | MERGE-02 | Phase 7 | Complete |
 | MERGE-03 | Phase 7 | Complete |

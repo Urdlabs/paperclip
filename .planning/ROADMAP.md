@@ -24,7 +24,7 @@ Full details: [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 - [x] **Phase 5: Merge Preparation** - Map conflicts, establish rollback safety, resolve migration numbering, document fork features
 - [x] **Phase 6: Foundation & Database Merge** - Merge shared packages and DB layer as dependency roots
 - [x] **Phase 7: Server, UI & Full Verification** - Merge remaining layers, verify all 226 upstream commits integrated, confirm v1.0 features survive (completed 2026-03-13)
-- [ ] **Phase 8: Continuous Sync Automation** - GitHub Action for weekly upstream detection, auto-created sync PRs, health badge
+- [x] **Phase 8: Continuous Sync Automation** - GitHub Action for weekly upstream detection, auto-created sync PRs, health badge (completed 2026-03-13)
 
 ## Phase Details
 
@@ -104,4 +104,4 @@ Plans:
 | 5. Merge Preparation | v1.1 | 3/3 | Complete | 2026-03-12 |
 | 6. Foundation & Database Merge | v1.1 | 1/1 | Complete | 2026-03-12 |
 | 7. Server, UI & Full Verification | 3/3 | Complete   | 2026-03-13 | - |
-| 8. Continuous Sync Automation | v1.1 | 2/3 | In progress | - |
+| 8. Continuous Sync Automation | v1.1 | 3/3 | Complete | 2026-03-13 |
