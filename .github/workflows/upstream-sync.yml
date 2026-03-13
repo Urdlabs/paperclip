@@ -1,0 +1,292 @@
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Monday 08:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Detect upstream changes
+        id: detect
+        run: |
+          git remote add upstream https://github.com/paperclipai/paperclip.git 2>/dev/null || true
+          git fetch upstream master --quiet
+
+          UPSTREAM_HEAD=$(git rev-parse upstream/master)
+          MERGE_BASE=$(git merge-base HEAD upstream/master)
+
+          if [ "$UPSTREAM_HEAD" = "$MERGE_BASE" ]; then
+            echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+            echo "No new upstream commits. Exiting."
+            exit 0
+          fi
+
+          BEHIND_COUNT=$(git rev-list --count HEAD..upstream/master)
+          echo "behind_count=$BEHIND_COUNT" >> "$GITHUB_OUTPUT"
+          echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+          echo "Fork is $BEHIND_COUNT commits behind upstream."
+
+      - name: Seed rerere from Phase 6 merge
+        if: steps.detect.outputs.up_to_date == 'false'
+        run: |
+          git config rerere.enabled true
+          git config rerere.autoUpdate true
+
+          ORIG_HEAD=$(git rev-parse HEAD)
+
+          # Detach to first parent of the Phase 6 merge commit
+          git checkout --detach "8c83b0d^1" --quiet
+
+          # Attempt the same merge that originally conflicted
+          git merge --no-commit --no-ff "8c83b0d^2" >/dev/null 2>&1 || true
+
+          # Let rerere record the conflict state
+          git rerere
+
+          # Apply the known resolution from the actual merge commit
+          git checkout "8c83b0d" -- . 2>/dev/null
+
+          # Let rerere record the resolution
+          git rerere
+
+          # Return to original position
+          git checkout --force --quiet "$ORIG_HEAD"
+          echo "Rerere cache seeded with Phase 6 conflict resolutions."
+
+      - name: Attempt upstream merge
+        if: steps.detect.outputs.up_to_date == 'false'
+        id: merge
+        run: |
+          git config user.name "upstream-sync-bot"
+          git config user.email "upstream-sync-bot@users.noreply.github.com"
+
+          git checkout -B chore/upstream-sync
+
+          if git merge upstream/master --no-edit; then
+            echo "merge_clean=true" >> "$GITHUB_OUTPUT"
+            echo "Merge completed cleanly."
+          else
+            echo "merge_clean=false" >> "$GITHUB_OUTPUT"
+            echo "Merge has conflicts."
+          fi
+
+      - name: Regenerate lockfile
+        if: steps.merge.outputs.merge_clean == 'true'
+        run: |
+          rm -f pnpm-lock.yaml
+          pnpm install --no-frozen-lockfile
+          git add pnpm-lock.yaml
+          git commit --amend --no-edit
+
+      - name: Create sync PR
+        if: steps.merge.outputs.merge_clean == 'true'
+        run: |
+          git push --force origin chore/upstream-sync
+
+          MERGE_BASE=$(git merge-base HEAD upstream/master)
+          BEHIND_COUNT="${{ steps.detect.outputs.behind_count }}"
+
+          # Area classification function
+          classify_area() {
+            local file="$1"
+            case "$file" in
+              packages/db/*|*/migrations/*) echo "DB" ;;
+              server/*)                     echo "Server" ;;
+              ui/*)                         echo "UI" ;;
+              packages/*)                   echo "Packages" ;;
+              cli/*)                        echo "CLI" ;;
+              Dockerfile*|docker-compose*|.github/*) echo "Infrastructure" ;;
+              *)                            echo "Other" ;;
+            esac
+          }
+
+          # Build area-grouped changelog
+          declare -A area_commits
+          current_hash=""
+          current_msg=""
+          declare -a current_areas
+
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^[a-f0-9]+\ .+ ]]; then
+              # Process previous commit if exists
+              if [[ -n "$current_hash" ]]; then
+                if [[ ${#current_areas[@]} -eq 0 ]]; then
+                  current_areas=("Other")
+                fi
+                unique_areas=($(printf '%s\n' "${current_areas[@]}" | sort -u))
+                for area in "${unique_areas[@]}"; do
+                  area_commits["$area"]+="- ${current_msg} (\`${current_hash}\`)"$'\n'
+                done
+              fi
+              current_hash="${line%% *}"
+              current_hash="${current_hash:0:7}"
+              current_msg="${line#* }"
+              current_areas=()
+            elif [[ -n "$line" && -n "$current_hash" ]]; then
+              area=$(classify_area "$line")
+              current_areas+=("$area")
+            fi
+          done < <(git log --oneline --name-only "${MERGE_BASE}..upstream/master" && echo "")
+
+          # Process last commit
+          if [[ -n "$current_hash" ]]; then
+            if [[ ${#current_areas[@]} -eq 0 ]]; then
+              current_areas=("Other")
+            fi
+            unique_areas=($(printf '%s\n' "${current_areas[@]}" | sort -u))
+            for area in "${unique_areas[@]}"; do
+              area_commits["$area"]+="- ${current_msg} (\`${current_hash}\`)"$'\n'
+            done
+          fi
+
+          # Build PR body
+          PR_BODY="## Upstream Changes"$'\n\n'
+          for area in "DB" "Server" "UI" "Packages" "CLI" "Infrastructure" "Other"; do
+            if [[ -n "${area_commits[$area]}" ]]; then
+              PR_BODY+="### ${area}"$'\n'"${area_commits[$area]}"$'\n'
+            fi
+          done
+          PR_BODY+="---"$'\n'"*Auto-generated by upstream-sync workflow*"
+
+          PR_TITLE="chore(upstream): sync ${BEHIND_COUNT} commits from upstream"
+
+          # Check for existing PR
+          existing=$(gh pr list --head "chore/upstream-sync" --json number --jq '.[0].number')
+          if [ -z "$existing" ]; then
+            gh pr create \
+              --head "chore/upstream-sync" \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY"
+            echo "Created sync PR."
+          else
+            echo "PR #$existing already exists, branch updated via force push."
+          fi
+
+      - name: Create conflict issue
+        if: steps.merge.outputs.merge_clean == 'false'
+        run: |
+          # Area classification function
+          classify_area() {
+            local file="$1"
+            case "$file" in
+              packages/db/*|*/migrations/*) echo "DB" ;;
+              server/*)                     echo "Server" ;;
+              ui/*)                         echo "UI" ;;
+              packages/*)                   echo "Packages" ;;
+              cli/*)                        echo "CLI" ;;
+              Dockerfile*|docker-compose*|.github/*) echo "Infrastructure" ;;
+              *)                            echo "Other" ;;
+            esac
+          }
+
+          # List conflicting files and group by area
+          declare -A area_files
+          while IFS= read -r file; do
+            if [[ -n "$file" ]]; then
+              area=$(classify_area "$file")
+              area_files["$area"]+="- \`${file}\`"$'\n'
+            fi
+          done < <(git diff --name-only --diff-filter=U)
+
+          # Build issue body
+          ISSUE_BODY="## Upstream Sync Conflicts"$'\n\n'
+          ISSUE_BODY+="Automated sync detected merge conflicts with upstream/master."$'\n\n'
+          ISSUE_BODY+="**Commits behind:** ${{ steps.detect.outputs.behind_count }}"$'\n\n'
+          ISSUE_BODY+="**Conflicting files by area:**"$'\n\n'
+          for area in "DB" "Server" "UI" "Packages" "CLI" "Infrastructure" "Other"; do
+            if [[ -n "${area_files[$area]}" ]]; then
+              ISSUE_BODY+="### ${area}"$'\n'"${area_files[$area]}"$'\n'
+            fi
+          done
+          ISSUE_BODY+="---"$'\n'"*Auto-generated by upstream-sync workflow*"
+
+          # Abort the merge
+          git merge --abort
+
+          # Ensure label exists
+          gh label create "upstream-sync" --description "Automated upstream sync" --color "0E8A16" 2>/dev/null || true
+
+          # Create issue
+          gh issue create \
+            --title "Upstream sync: merge conflicts detected ($(date -u +%Y-%m-%d))" \
+            --body "$ISSUE_BODY" \
+            --label "upstream-sync"
+          echo "Created conflict issue."
+
+      - name: Update sync status
+        if: steps.detect.outputs.up_to_date == 'false'
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          BEHIND_COUNT="${{ steps.detect.outputs.behind_count }}"
+          MERGE_CLEAN="${{ steps.merge.outputs.merge_clean }}"
+
+          if [ "$MERGE_CLEAN" = "true" ]; then
+            BEHIND_COUNT=0
+            STATUS="synced"
+          else
+            STATUS="conflicts"
+          fi
+
+          # Determine badge color
+          if [ "$STATUS" = "conflicts" ]; then
+            COLOR="red"
+          elif [ "$BEHIND_COUNT" -eq 0 ]; then
+            COLOR="brightgreen"
+          elif [ "$BEHIND_COUNT" -lt 10 ]; then
+            COLOR="green"
+          elif [ "$BEHIND_COUNT" -lt 50 ]; then
+            COLOR="yellow"
+          else
+            COLOR="red"
+          fi
+
+          # Build message
+          if [ "$STATUS" = "conflicts" ]; then
+            MESSAGE="${BEHIND_COUNT} behind (conflicts) | ${TODAY}"
+          else
+            MESSAGE="${BEHIND_COUNT} behind | ${TODAY}"
+          fi
+
+          # Write sync status JSON
+          printf '{\n  "schemaVersion": 1,\n  "label": "upstream sync",\n  "message": "%s",\n  "color": "%s"\n}\n' "$MESSAGE" "$COLOR" > .github/sync-status.json
+
+          # Commit and push to master
+          git config user.name "upstream-sync-bot"
+          git config user.email "upstream-sync-bot@users.noreply.github.com"
+          git checkout master
+          git add .github/sync-status.json
+          git commit -m "chore: update sync status"
+          git push origin master
