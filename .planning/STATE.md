@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Upstream Sync & Continuous Integration
 status: completed
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-03-13T13:47:49.558Z"
-last_activity: 2026-03-13 -- Fixed 3 timeout tests, added 22 integration tests (phase 7, plan 1)
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-13T13:48:00Z"
+last_activity: 2026-03-13 -- Added 46 integration tests for v1.0 features 5-8 (phase 7, plan 2)
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 7
-  completed_plans: 5
-  percent: 71
+  completed_plans: 6
+  percent: 76
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 ## Current Position
 
 Phase: 7 of 8 (Server & UI Full Verification)
-Plan: 2 of 3
-Status: Plan 1 complete, continuing plan 2
-Last activity: 2026-03-13 -- Fixed 3 timeout tests, added 22 integration tests (phase 7, plan 1)
+Plan: 3 of 3
+Status: Plan 2 complete, continuing plan 3
+Last activity: 2026-03-13 -- Added 46 integration tests for v1.0 features 5-8 (phase 7, plan 2)
 
-Progress: [##############......] 71% (v1.0 complete, phase 5-7.1 complete)
+Progress: [###############.....] 76% (v1.0 complete, phase 5-7.2 complete)
 
 ## Performance Metrics
 
@@ -49,6 +49,11 @@ Progress: [##############......] 71% (v1.0 complete, phase 5-7.1 complete)
 - Duration: 6 min
 - Tests: 585 passing (542 existing + 22 new + 1 skipped, 3 timeout fixes)
 
+**v1.1 Phase 7, Plan 2:**
+- 2 tasks, 2 commits, 4 files created (+963 lines)
+- Duration: 7 min
+- Tests: 46 new integration tests (9 activity, 11 task decomposition, 15 skill profiles, 11 code review)
+
 ## Accumulated Context
 
 ### Decisions
@@ -65,6 +70,8 @@ Recent decisions affecting current work:
 - Context pipeline tested as pure function (no route mocking needed)
 - Webhook tests mock svc.remove (not delete) matching actual route implementation
 - [Phase 07]: Used 15_000ms timeout for slow worktree tests (matching existing 20_000ms precedent)
+- [Phase 07-02]: vi.hoisted default mocks with createApp()-per-test avoids clearAllMocks issues with module-scoped service factories
+- [Phase 07-02]: Code review tested at service-level (pure function imports) not route-level
 
 ### Pending Todos
 
@@ -76,6 +83,6 @@ None active.
 
 ## Session Continuity
 
-Last session: 2026-03-13T13:47:45.460Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-03-13T13:48:00Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
