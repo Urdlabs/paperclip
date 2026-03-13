@@ -52,10 +52,10 @@ Plans:
   1. `packages/shared` and `packages/adapter-utils` compile with zero TypeScript errors after incorporating upstream changes
   2. `packages/db` compiles and the combined migration set (fork 0026-0030 + renumbered upstream 0031-0032) applies cleanly on both a fresh database and an existing fork database
   3. The existing CI verification suite (typecheck + tests + build) passes after the foundation merge commit
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md -- Execute upstream merge, resolve all 16 conflicts, verify full CI suite, commit and tag (MERGE-01)
 
 ### Phase 7: Server, UI & Full Verification
 **Goal**: All 226 upstream commits are merged into the fork with every v1.0 feature verified working
@@ -99,6 +99,6 @@ Plans:
 | 3. Observability & Monitoring UX | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 4. Notifications & Agent Capabilities | v1.0 | 5/5 | Complete | 2026-03-12 |
 | 5. Merge Preparation | v1.1 | 0/3 | Planned | - |
-| 6. Foundation & Database Merge | v1.1 | 0/? | Not started | - |
+| 6. Foundation & Database Merge | v1.1 | 0/1 | Planned | - |
 | 7. Server, UI & Full Verification | v1.1 | 0/? | Not started | - |
 | 8. Continuous Sync Automation | v1.1 | 0/? | Not started | - |
