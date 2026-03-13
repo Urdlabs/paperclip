@@ -21,8 +21,8 @@ Full details: [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 ### v1.1 Upstream Sync & Continuous Integration
 
-- [ ] **Phase 5: Merge Preparation** - Map conflicts, establish rollback safety, resolve migration numbering, document fork features
-- [ ] **Phase 6: Foundation & Database Merge** - Merge shared packages and DB layer as dependency roots
+- [x] **Phase 5: Merge Preparation** - Map conflicts, establish rollback safety, resolve migration numbering, document fork features
+- [x] **Phase 6: Foundation & Database Merge** - Merge shared packages and DB layer as dependency roots
 - [ ] **Phase 7: Server, UI & Full Verification** - Merge remaining layers, verify all 226 upstream commits integrated, confirm v1.0 features survive
 - [ ] **Phase 8: Continuous Sync Automation** - GitHub Action for weekly upstream detection, auto-created sync PRs, health badge
 
@@ -70,7 +70,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Fix 3 timeout test failures + integration tests for features 1-4 (VERIFY-01, VERIFY-04)
+- [x] 07-01-PLAN.md -- Fix 3 timeout test failures + integration tests for features 1-4 (VERIFY-01, VERIFY-04)
 - [ ] 07-02-PLAN.md -- Integration tests for features 5-8 (VERIFY-04)
 - [ ] 07-03-PLAN.md -- Full CI suite verification + Docker build and health check (MERGE-02..05, VERIFY-01..03)
 
@@ -99,7 +99,7 @@ Plans:
 | 2. Context Optimization Pipeline | v1.0 | 3/3 | Complete | 2026-03-11 |
 | 3. Observability & Monitoring UX | v1.0 | 3/3 | Complete | 2026-03-12 |
 | 4. Notifications & Agent Capabilities | v1.0 | 5/5 | Complete | 2026-03-12 |
-| 5. Merge Preparation | v1.1 | 0/3 | Planned | - |
-| 6. Foundation & Database Merge | v1.1 | 0/1 | Planned | - |
-| 7. Server, UI & Full Verification | v1.1 | 0/3 | Planned | - |
+| 5. Merge Preparation | v1.1 | 3/3 | Complete | 2026-03-12 |
+| 6. Foundation & Database Merge | v1.1 | 1/1 | Complete | 2026-03-12 |
+| 7. Server, UI & Full Verification | v1.1 | 1/3 | In Progress | - |
 | 8. Continuous Sync Automation | v1.1 | 0/? | Not started | - |

@@ -24,10 +24,10 @@ Requirements for upstream sync and continuous integration. Each maps to roadmap 
 
 ### Post-Merge Verification
 
-- [ ] **VERIFY-01**: Full test suite passes after merge (411+ tests)
+- [x] **VERIFY-01**: Full test suite passes after merge (411+ tests)
 - [ ] **VERIFY-02**: TypeScript compilation succeeds with zero errors across all packages
 - [ ] **VERIFY-03**: Docker build completes successfully
-- [ ] **VERIFY-04**: All v1.0 features verified working -- token analytics, context optimization, webhooks, traces, activity feeds, task decomposition, skill profiles, code review
+- [x] **VERIFY-04**: All v1.0 features verified working -- token analytics, context optimization, webhooks, traces, activity feeds, task decomposition, skill profiles, code review
 
 ### Continuous Sync Automation
 
@@ -71,10 +71,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MERGE-03 | Phase 7 | Pending |
 | MERGE-04 | Phase 7 | Pending |
 | MERGE-05 | Phase 7 | Pending |
-| VERIFY-01 | Phase 7 | Pending |
+| VERIFY-01 | Phase 7 | Complete |
 | VERIFY-02 | Phase 7 | Pending |
 | VERIFY-03 | Phase 7 | Pending |
-| VERIFY-04 | Phase 7 | Pending |
+| VERIFY-04 | Phase 7 | Complete |
 | SYNC-01 | Phase 8 | Pending |
 | SYNC-02 | Phase 8 | Pending |
 | SYNC-03 | Phase 8 | Pending |
