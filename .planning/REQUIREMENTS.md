@@ -36,7 +36,7 @@ Requirements for upstream sync and continuous integration. Each maps to roadmap 
 - [ ] **SYNC-03**: Sync PR includes conflict area categorization and estimated resolution effort
 - [ ] **SYNC-04**: Lockfile is auto-regenerated in the sync workflow (no manual lockfile conflicts)
 - [ ] **SYNC-05**: git rerere is enabled to auto-apply previous conflict resolutions
-- [ ] **SYNC-06**: README displays sync health badge showing commits behind upstream
+- [x] **SYNC-06**: README displays sync health badge showing commits behind upstream
 
 ## Future Requirements
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-03 | Phase 8 | Pending |
 | SYNC-04 | Phase 8 | Pending |
 | SYNC-05 | Phase 8 | Pending |
-| SYNC-06 | Phase 8 | Pending |
+| SYNC-06 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 19 total

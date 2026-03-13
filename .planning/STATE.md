@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Upstream Sync & Continuous Integration
-status: verifying
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-13T15:02:04.744Z"
-last_activity: 2026-03-13 -- Full CI + Docker verification complete (phase 7, plan 3)
+status: completed
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-13T15:57:05.401Z"
+last_activity: 2026-03-13 -- Sync status badge with shields.io endpoint (phase 8, plan 2)
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 88
+  total_plans: 9
+  completed_plans: 8
+  percent: 96
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** Agents that do more with less -- smarter context, lower cost, better results
-**Current focus:** Phase 7 complete -- Server & UI Full Verification (v1.1)
+**Current focus:** Phase 8 -- Continuous Sync Automation (v1.1)
 
 ## Current Position
 
-Phase: 7 of 8 (Server & UI Full Verification) -- COMPLETE
-Plan: 3 of 3 -- COMPLETE
-Status: Phase 7 complete, all MERGE/VERIFY requirements closed
-Last activity: 2026-03-13 -- Full CI + Docker verification complete (phase 7, plan 3)
+Phase: 8 of 8 (Continuous Sync Automation)
+Plan: 2 of 2 -- COMPLETE
+Status: Phase 8 plan 2 complete -- sync status badge added to README
+Last activity: 2026-03-13 -- Sync status badge with shields.io endpoint (phase 8, plan 2)
 
-Progress: [#################...] 88% (v1.0 complete, phases 5-7 complete)
+Progress: [██████████] 96% (v1.0 complete, phases 5-8 in progress)
 
 ## Performance Metrics
 
@@ -61,6 +61,11 @@ Progress: [#################...] 88% (v1.0 complete, phases 5-7 complete)
 - Docker: image builds, container healthy, /api/health responds ok
 - 3 auto-fixes: Dockerfile gemini-local, locale for embedded-postgres, orphan migrations
 
+**v1.1 Phase 8, Plan 2:**
+- 1 task, 1 commit, 2 files changed
+- Duration: 1 min
+- Created sync-status.json badge endpoint, added upstream sync badge to README
+
 ## Accumulated Context
 
 ### Decisions
@@ -82,6 +87,7 @@ Recent decisions affecting current work:
 - [Phase 07-03]: en_US.UTF-8 locale required in Docker for embedded-postgres library
 - [Phase 07-03]: Orphan migration files 0026/0027 removed (renumbered to 0031/0032 during merge)
 - [Phase 07-03]: Docker requires BETTER_AUTH_SECRET env var in authenticated deployment mode
+- [Phase 08]: Badge points to fork repo (Urdlabs/paperclip) not upstream, since workflow and JSON live on the fork
 
 ### Pending Todos
 
@@ -93,6 +99,6 @@ None active.
 
 ## Session Continuity
 
-Last session: 2026-03-13T15:02:04.742Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-continuous-sync-automation/08-CONTEXT.md
+Last session: 2026-03-13T15:57:05.399Z
+Stopped at: Completed 08-02-PLAN.md
+Resume file: None
