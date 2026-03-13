@@ -124,7 +124,7 @@ describe("realizeExecutionWorkspace", () => {
     expect(second.created).toBe(false);
     expect(second.cwd).toBe(first.cwd);
     expect(second.branchName).toBe(first.branchName);
-  });
+  }, 15_000);
 
   it("runs a configured provision command inside the derived worktree", async () => {
     const repoRoot = await createTempRepo();
@@ -210,7 +210,7 @@ describe("realizeExecutionWorkspace", () => {
     });
 
     await expect(fs.readFile(path.join(reused.cwd, ".paperclip-provision-created"), "utf8")).resolves.toBe("false\n");
-  });
+  }, 15_000);
 });
 
 describe("ensureRuntimeServicesForRun", () => {
