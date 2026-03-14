@@ -10,7 +10,7 @@ import { formatCents, formatTokens } from "../lib/utils";
 import { Identity } from "../components/Identity";
 import { StatusBadge } from "../components/StatusBadge";
 import { AnalyticsCharts } from "../components/AnalyticsCharts";
-import { computeCacheEfficiencyPercent } from "../lib/costs";
+import { computeCacheEfficiencyMetrics } from "../lib/costs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign } from "lucide-react";
@@ -247,40 +247,50 @@ export function Costs() {
                       <p className="text-sm text-muted-foreground">No cost events yet.</p>
                     ) : (
                       <div className="space-y-2">
-                        {data.byAgent.map((row) => (
-                          <div
-                            key={row.agentId}
-                            className="flex items-start justify-between text-sm"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Identity
-                                name={row.agentName ?? row.agentId}
-                                size="sm"
-                              />
-                              {row.agentStatus === "terminated" && (
-                                <StatusBadge status="terminated" />
-                              )}
-                            </div>
-                            <div className="text-right shrink-0 ml-2 tabular-nums">
-                              <span className="font-medium block">{formatCents(row.costCents)}</span>
-                              <span className="text-xs text-muted-foreground block">
-                                in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
-                              </span>
-                              <span className="text-xs font-mono text-muted-foreground block" title="Cache reads cost 10% of input price">
-                                cached {formatTokens(row.cachedInputTokens)} ({computeCacheEfficiencyPercent(row.cachedInputTokens, row.inputTokens).toFixed(1)}% eff)
-                              </span>
-                              {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
+                        {data.byAgent.map((row) => {
+                          const cacheMetrics = computeCacheEfficiencyMetrics(
+                            row.cachedInputTokens,
+                            row.inputTokens,
+                          );
+
+                          return (
+                            <div
+                              key={row.agentId}
+                              className="flex items-start justify-between text-sm"
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Identity
+                                  name={row.agentName ?? row.agentId}
+                                  size="sm"
+                                />
+                                {row.agentStatus === "terminated" && (
+                                  <StatusBadge status="terminated" />
+                                )}
+                              </div>
+                              <div className="text-right shrink-0 ml-2 tabular-nums">
+                                <span className="font-medium block">{formatCents(row.costCents)}</span>
                                 <span className="text-xs text-muted-foreground block">
-                                  {row.apiRunCount > 0 ? `api runs: ${row.apiRunCount}` : null}
-                                  {row.apiRunCount > 0 && row.subscriptionRunCount > 0 ? " | " : null}
-                                  {row.subscriptionRunCount > 0
-                                    ? `subscription runs: ${row.subscriptionRunCount} (${formatTokens(row.subscriptionInputTokens)} in / ${formatTokens(row.subscriptionOutputTokens)} out tok)`
-                                    : null}
+                                  uncached in {formatTokens(cacheMetrics.uncachedInputTokens)} / out {formatTokens(row.outputTokens)} tok
                                 </span>
-                              )}
+                                <span
+                                  className="text-xs font-mono text-muted-foreground block"
+                                  title="Cached reads are shown separately from uncached input and are billed at 10% of input price"
+                                >
+                                  prompt cached {formatTokens(cacheMetrics.cachedInputTokens)} of {formatTokens(cacheMetrics.totalPromptTokens)} tok ({cacheMetrics.cacheSharePercent.toFixed(1)}% cache share)
+                                </span>
+                                {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
+                                  <span className="text-xs text-muted-foreground block">
+                                    {row.apiRunCount > 0 ? `api runs: ${row.apiRunCount}` : null}
+                                    {row.apiRunCount > 0 && row.subscriptionRunCount > 0 ? " | " : null}
+                                    {row.subscriptionRunCount > 0
+                                      ? `subscription runs: ${row.subscriptionRunCount} (${formatTokens(row.subscriptionInputTokens)} in / ${formatTokens(row.subscriptionOutputTokens)} out tok)`
+                                      : null}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </CardContent>
