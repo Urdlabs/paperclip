@@ -135,7 +135,7 @@ describe("costService.summary token analytics", () => {
     expect(result.avgCompressionRatio).toBe(0.4523);
   });
 
-  it("computes cacheHitRate correctly: 400/1000 = 40.0", async () => {
+  it("computes cacheHitRate using total prompt tokens: 400/(1000+400)=28.6", async () => {
     const db = createMockDb({
       company: { id: "c1", budgetMonthlyCents: 10000 },
       costSumTotal: 100,
@@ -150,7 +150,25 @@ describe("costService.summary token analytics", () => {
     const service = costService(db);
     const result = await service.summary("c1");
 
-    expect(result.cacheHitRate).toBe(40.0);
+    expect(result.cacheHitRate).toBe(28.6);
+  });
+
+  it("keeps cacheHitRate bounded when cached tokens exceed uncached input", async () => {
+    const db = createMockDb({
+      company: { id: "c1", budgetMonthlyCents: 10000 },
+      costSumTotal: 100,
+      tokenStats: {
+        totalTokens: 3000,
+        totalCached: 2000,
+        totalInput: 500,
+        runCount: 5,
+      },
+    });
+
+    const service = costService(db);
+    const result = await service.summary("c1");
+
+    expect(result.cacheHitRate).toBe(80.0);
   });
 
   it("cacheHitRate is 0 when totalInput is 0", async () => {

@@ -103,9 +103,12 @@ export function costService(db: Db) {
         .where(and(...conditions));
 
       const totalTokens = Number(tokenStats.totalTokens);
+      const totalInput = Number(tokenStats.totalInput);
+      const totalCached = Number(tokenStats.totalCached);
+      const totalPromptTokens = totalInput + totalCached;
       const cacheHitRate =
-        Number(tokenStats.totalInput) > 0
-          ? Number(((Number(tokenStats.totalCached) / Number(tokenStats.totalInput)) * 100).toFixed(1))
+        totalPromptTokens > 0
+          ? Number(((totalCached / totalPromptTokens) * 100).toFixed(1))
           : 0;
       const avgTokensPerRun =
         Number(tokenStats.runCount) > 0 ? Math.round(totalTokens / Number(tokenStats.runCount)) : 0;
