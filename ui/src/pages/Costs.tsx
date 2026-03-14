@@ -10,6 +10,7 @@ import { formatCents, formatTokens } from "../lib/utils";
 import { Identity } from "../components/Identity";
 import { StatusBadge } from "../components/StatusBadge";
 import { AnalyticsCharts } from "../components/AnalyticsCharts";
+import { computeCacheEfficiencyPercent } from "../lib/costs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign } from "lucide-react";
@@ -266,7 +267,7 @@ export function Costs() {
                                 in {formatTokens(row.inputTokens)} / out {formatTokens(row.outputTokens)} tok
                               </span>
                               <span className="text-xs font-mono text-muted-foreground block" title="Cache reads cost 10% of input price">
-                                cached {formatTokens(row.cachedInputTokens)} ({((row.cachedInputTokens / Math.max(1, row.inputTokens)) * 100).toFixed(1)}% eff)
+                                cached {formatTokens(row.cachedInputTokens)} ({computeCacheEfficiencyPercent(row.cachedInputTokens, row.inputTokens).toFixed(1)}% eff)
                               </span>
                               {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
                                 <span className="text-xs text-muted-foreground block">
