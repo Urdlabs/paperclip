@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeCacheEfficiencyMetrics, computeCacheEfficiencyPercent } from "./costs";
+import {
+  computeCacheEfficiencyMetrics,
+  computeCacheEfficiencyPercent,
+  formatExactTokenCount,
+} from "./costs";
 
 describe("computeCacheEfficiencyMetrics", () => {
   it("returns uncached/cached totals with cache share percent", () => {
@@ -46,5 +50,17 @@ describe("computeCacheEfficiencyPercent", () => {
   it("clamps negative values to zero", () => {
     expect(computeCacheEfficiencyPercent(-100, 1000)).toBe(0);
     expect(computeCacheEfficiencyPercent(1000, -100)).toBe(100.0);
+  });
+});
+
+describe("formatExactTokenCount", () => {
+  it("formats large token counts without compact rounding ambiguity", () => {
+    expect(formatExactTokenCount(21_903_700)).toBe("21,903,700");
+    expect(formatExactTokenCount(21_900_000)).toBe("21,900,000");
+  });
+
+  it("rounds and clamps invalid values", () => {
+    expect(formatExactTokenCount(3_700.4)).toBe("3,700");
+    expect(formatExactTokenCount(-10)).toBe("0");
   });
 });

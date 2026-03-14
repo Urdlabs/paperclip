@@ -10,7 +10,7 @@ import { formatCents, formatTokens } from "../lib/utils";
 import { Identity } from "../components/Identity";
 import { StatusBadge } from "../components/StatusBadge";
 import { AnalyticsCharts } from "../components/AnalyticsCharts";
-import { computeCacheEfficiencyMetrics } from "../lib/costs";
+import { computeCacheEfficiencyMetrics, formatExactTokenCount } from "../lib/costs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign } from "lucide-react";
@@ -274,9 +274,9 @@ export function Costs() {
                                 </span>
                                 <span
                                   className="text-xs font-mono text-muted-foreground block"
-                                  title="Cached reads are shown separately from uncached input and are billed at 10% of input price"
+                                  title="Prompt totals are exact token counts: total = uncached + cached. Cached reads are shown separately from uncached input and are billed at 10% of input price"
                                 >
-                                  prompt cached {formatTokens(cacheMetrics.cachedInputTokens)} of {formatTokens(cacheMetrics.totalPromptTokens)} tok ({cacheMetrics.cacheSharePercent.toFixed(1)}% cache share)
+                                  prompt total {formatExactTokenCount(cacheMetrics.totalPromptTokens)} tok = {formatExactTokenCount(cacheMetrics.uncachedInputTokens)} uncached + {formatExactTokenCount(cacheMetrics.cachedInputTokens)} cached ({cacheMetrics.cacheSharePercent.toFixed(1)}% cache share)
                                 </span>
                                 {(row.apiRunCount > 0 || row.subscriptionRunCount > 0) && (
                                   <span className="text-xs text-muted-foreground block">

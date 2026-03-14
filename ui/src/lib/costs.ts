@@ -31,3 +31,9 @@ export function computeCacheEfficiencyPercent(cachedInputTokens: number, inputTo
 
   return metrics.cacheSharePercent;
 }
+
+export function formatExactTokenCount(tokenCount: number): string {
+  const safeCount = Math.max(0, Math.round(tokenCount));
+
+  return safeCount.toLocaleString("en-US");
+}
